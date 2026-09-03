@@ -1,0 +1,43 @@
+# Binaries
+/bin/
+/dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test
+*.test
+*.out
+coverage.html
+
+# Profiling
+*.prof
+*.pprof
+cpu.out
+mem.out
+
+# Environment
+.env
+.env.local
+*.local.yaml
+
+# Editor
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go workspace
+go.work
+go.work.sum
+
+# Vendor（使う場合は削除）
+/vendor/

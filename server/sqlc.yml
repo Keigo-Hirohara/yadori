@@ -1,0 +1,30 @@
+version: "2"
+sql:
+  # 施設情報の管理
+  - engine: "postgresql"
+    schema: "db/migrations"
+    queries: "db/queries/accommodation"
+    gen:
+      go:
+        package: "accommodationdb"
+        out: "internal/accommodation/db"
+        sql_package: "pgx/v5"
+        emit_pointers_for_null_types: true
+        overrides: &overrides
+          - db_type: "uuid"
+            go_type: "github.com/google/uuid.UUID"
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+          - db_type: "date"
+            go_type: "time.Time"
+  # 会員管理
+  - engine: "postgresql"
+    schema: "db/migrations"
+    queries: "db/queries/booker"
+    gen:
+      go:
+        package: "bookerdb"
+        out: "internal/booker/db"
+        sql_package: "pgx/v5"
+        emit_pointers_for_null_types: true
+        overrides: *overrides
