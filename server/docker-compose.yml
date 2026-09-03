@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: yadori
+      POSTGRES_PASSWORD: yadori
+      POSTGRES_DB: yadori
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yadori"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    image: migrate/migrate:v4.17.1
+    volumes:
+      - ./db/migrations:/migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["tools"]
+    entrypoint:
+      - migrate
+      - -path=/migrations
+      - -database=postgres://yadori:yadori@postgres:5432/yadori?sslmode=disable
+
+  sqlc:
+    image: sqlc/sqlc:1.27.0
+    volumes:
+      - .:/src
+    working_dir: /src
+    profiles: ["tools"]
+
+volumes:
+  pgdata:
