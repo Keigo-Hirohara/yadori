@@ -47,7 +47,7 @@ type AccommodationCreateInput struct {
 	Building      string
 }
 
-func New(input AccommodationCreateInput) (Accommodation, error) {
+func NewAccommodation(input AccommodationCreateInput) (Accommodation, error) {
 	if err := validName(input.Name); err != nil {
 		return Accommodation{}, err
 	}

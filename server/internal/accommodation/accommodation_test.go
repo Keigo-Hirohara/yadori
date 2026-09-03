@@ -11,7 +11,7 @@ import (
 
 func TestNewAccommodation(t *testing.T) {
 	t.Run("必須項目が揃っていれば、宿を登録できる", func(t *testing.T) {
-		_, err := New(AccommodationCreateInput{
+		_, err := NewAccommodation(AccommodationCreateInput{
 			Name:          "舞浜ホテル",
 			PhoneNumber:   "04712344321",
 			PostalCode:    "1000000",
@@ -37,7 +37,7 @@ func TestNewAccommodation(t *testing.T) {
 
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
-					got, err := New(AccommodationCreateInput{
+					got, err := NewAccommodation(AccommodationCreateInput{
 						Name:          tt.input,
 						PhoneNumber:   "04712344321",
 						PostalCode:    "1000000",
@@ -67,7 +67,7 @@ func TestNewAccommodation(t *testing.T) {
 
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
-					_, err := New(AccommodationCreateInput{
+					_, err := NewAccommodation(AccommodationCreateInput{
 						Name:          tt.input,
 						PhoneNumber:   "04712344321",
 						PostalCode:    "1000000",
@@ -102,7 +102,7 @@ func TestNewAccommodation(t *testing.T) {
 
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
-					got, err := New(AccommodationCreateInput{
+					got, err := NewAccommodation(AccommodationCreateInput{
 						Name:          "舞浜ホテル",
 						PhoneNumber:   tt.input,
 						PostalCode:    "1000000",
@@ -135,7 +135,7 @@ func TestNewAccommodation(t *testing.T) {
 
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
-					_, err := New(AccommodationCreateInput{
+					_, err := NewAccommodation(AccommodationCreateInput{
 						Name:          "舞浜ホテル",
 						PhoneNumber:   tt.input,
 						PostalCode:    "1000000",
@@ -168,7 +168,7 @@ func TestNewAccommodation(t *testing.T) {
 
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
-					got, err := New(AccommodationCreateInput{
+					got, err := NewAccommodation(AccommodationCreateInput{
 						Name:          "舞浜ホテル",
 						PhoneNumber:   "04712344321",
 						PostalCode:    tt.input,
@@ -200,7 +200,7 @@ func TestNewAccommodation(t *testing.T) {
 
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
-					_, err := New(AccommodationCreateInput{
+					_, err := NewAccommodation(AccommodationCreateInput{
 						Name:          "舞浜ホテル",
 						PhoneNumber:   "04712344321",
 						PostalCode:    tt.input,
@@ -222,7 +222,7 @@ func TestNewAccommodation(t *testing.T) {
 
 	t.Run("都道府県", func(t *testing.T) {
 		t.Run("入力されていれば、登録できる", func(t *testing.T) {
-			got, err := New(AccommodationCreateInput{
+			got, err := NewAccommodation(AccommodationCreateInput{
 				Name:          "舞浜ホテル",
 				PhoneNumber:   "04712344321",
 				PostalCode:    "1000000",
@@ -240,7 +240,7 @@ func TestNewAccommodation(t *testing.T) {
 		})
 
 		t.Run("空だと、登録できない", func(t *testing.T) {
-			_, err := New(AccommodationCreateInput{
+			_, err := NewAccommodation(AccommodationCreateInput{
 				Name:          "舞浜ホテル",
 				PhoneNumber:   "04712344321",
 				PostalCode:    "1000000",
@@ -260,7 +260,7 @@ func TestNewAccommodation(t *testing.T) {
 
 	t.Run("市区町村", func(t *testing.T) {
 		t.Run("入力されていれば、登録できる", func(t *testing.T) {
-			got, err := New(AccommodationCreateInput{
+			got, err := NewAccommodation(AccommodationCreateInput{
 				Name:          "舞浜ホテル",
 				PhoneNumber:   "04712344321",
 				PostalCode:    "1000000",
@@ -278,7 +278,7 @@ func TestNewAccommodation(t *testing.T) {
 		})
 
 		t.Run("空だと、登録できない", func(t *testing.T) {
-			_, err := New(AccommodationCreateInput{
+			_, err := NewAccommodation(AccommodationCreateInput{
 				Name:          "舞浜ホテル",
 				PhoneNumber:   "04712344321",
 				PostalCode:    "1000000",
@@ -297,11 +297,6 @@ func TestNewAccommodation(t *testing.T) {
 	})
 }
 
-func TestUpdateAccommodation(t *testing.T) {
-	t.Run("宿情報は編集できる", func(t *testing.T) {
-	})
-}
-
 func TestSaveAccomodation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("DBが必要なテストをスキップ")
@@ -311,7 +306,7 @@ func TestSaveAccomodation(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("宿を登録し、保存ができる", func(t *testing.T) {
-		accommodation, err := New(AccommodationCreateInput{
+		accommodation, err := NewAccommodation(AccommodationCreateInput{
 			Name:          "舞浜ホテル",
 			PhoneNumber:   "04700000000",
 			PostalCode:    "1000000",
