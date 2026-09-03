@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Accommodation struct {
@@ -35,4 +36,16 @@ type Booker struct {
 	Building      string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+}
+
+type RoomType struct {
+	ID              uuid.UUID
+	AccommodationID uuid.UUID
+	Name            string
+	Capacity        int32
+	HasPrivateBath  bool
+	HasBalcony      bool
+	DeletedAt       pgtype.Timestamptz
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
