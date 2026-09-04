@@ -3,6 +3,7 @@ package accommodation
 import (
 	"context"
 	"errors"
+	"unicode/utf8"
 
 	accommodationdb "github.com/Keigo-Hirohara/yadori/internal/accommodation/db"
 	"github.com/google/uuid"
@@ -13,6 +14,7 @@ import (
 const foreignKeyViolation = "23503"
 
 var (
+	ErrInvalidRoomTypeName    = errors.New("部屋タイプ名は1文字以上60文字以内にしてください")
 	ErrInvalidCapacity        = errors.New("定員は1名以上にしてください")
 	ErrFailedToSaveRoomType   = errors.New("部屋タイプの登録に失敗しました")
 	ErrRoomTypeNotFound       = errors.New("部屋タイプが見つかりませんでした")
@@ -36,12 +38,20 @@ type RoomTypeCreateInput struct {
 	HasBalcony      bool
 }
 
-func NewRoomType(input RoomTypeCreateInput) (RoomType, error) {
+func NewRoomType(input RoomTypeCreateInput) (*RoomType, error) {
 	if err := validCapacity(input.Capacity); err != nil {
-		return RoomType{}, err
+		return nil, err
 	}
 
-	return RoomType{
+	if err := validRoomTypeName(input.Name); err != nil {
+		return nil, err
+	}
+
+	if err := validAccommodationId(input.AccommodationId); err != nil {
+		return nil, err
+	}
+
+	return &RoomType{
 		id:              uuid.New(),
 		accommodationId: input.AccommodationId,
 		name:            input.Name,
@@ -111,9 +121,24 @@ func (r *RoomType) HasBalcony() bool {
 	return r.hasBalcony
 }
 
+func validAccommodationId(accommodationId uuid.UUID) error {
+	if accommodationId == uuid.Nil {
+		return ErrInvalidAccommodationId
+	}
+	return nil
+}
+
 func validCapacity(capacity int) error {
 	if capacity < 1 {
 		return ErrInvalidCapacity
+	}
+	return nil
+}
+
+func validRoomTypeName(name string) error {
+	nameLength := utf8.RuneCountInString(name)
+	if nameLength < 1 || nameLength > 60 {
+		return ErrInvalidRoomTypeName
 	}
 	return nil
 }

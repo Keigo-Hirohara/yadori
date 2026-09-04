@@ -2,12 +2,149 @@ package accommodation
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/Keigo-Hirohara/yadori/internal/testutil"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
+
+func TestNewRoomType(t *testing.T) {
+	t.Run("部屋タイプ名", func(t *testing.T) {
+		t.Run("1文字以上60文字以内なら、登録できる", func(t *testing.T) {
+			tests := []struct {
+				name  string
+				input string
+			}{
+				{name: "1文字なら登録できる", input: "松"},
+				{name: "60文字なら登録できる", input: strings.Repeat("あ", 60)},
+			}
+
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					got, err := NewRoomType(RoomTypeCreateInput{
+						AccommodationId: uuid.New(),
+						Name:            tt.input,
+						Capacity:        10,
+						HasPrivateBath:  true,
+						HasBalcony:      true,
+					})
+					if err != nil {
+						t.Fatalf("Error occured: %s", err)
+					}
+					if got.Name() != tt.input {
+						t.Errorf("部屋タイプ名が保持されていません: got %q, want %q", got.Name(), tt.input)
+					}
+				})
+			}
+		})
+
+		t.Run("1文字未満または60文字を超えると、登録できない", func(t *testing.T) {
+			tests := []struct {
+				name  string
+				input string
+			}{
+				{name: "空だと登録できない", input: ""},
+				{name: "61文字だと登録できない", input: strings.Repeat("あ", 61)},
+			}
+
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					_, err := NewRoomType(RoomTypeCreateInput{
+						AccommodationId: uuid.New(),
+						Name:            tt.input,
+						Capacity:        10,
+						HasPrivateBath:  true,
+						HasBalcony:      true,
+					})
+					if err == nil {
+						t.Fatal("エラーが返りませんでした")
+					}
+					if err.Error() != ErrInvalidRoomTypeName.Error() {
+						t.Errorf("エラーメッセージが違います: got %q", err.Error())
+					}
+				})
+			}
+		})
+	})
+
+	t.Run("定員", func(t *testing.T) {
+		t.Run("1名以上なら、登録できる", func(t *testing.T) {
+			tests := []struct {
+				name  string
+				input int
+			}{
+				{name: "1名なら登録できる", input: 1},
+				{name: "10名なら登録できる", input: 10},
+			}
+
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					got, err := NewRoomType(RoomTypeCreateInput{
+						AccommodationId: uuid.New(),
+						Name:            "スーペリアルーム",
+						Capacity:        tt.input,
+						HasPrivateBath:  true,
+						HasBalcony:      true,
+					})
+					if err != nil {
+						t.Fatalf("Error occured: %s", err)
+					}
+					if got.Capacity() != tt.input {
+						t.Errorf("定員が保持されていません: got %d, want %d", got.Capacity(), tt.input)
+					}
+				})
+			}
+		})
+
+		t.Run("1名未満だと、登録できない", func(t *testing.T) {
+			tests := []struct {
+				name  string
+				input int
+			}{
+				{name: "0名だと登録できない", input: 0},
+				{name: "負の数だと登録できない", input: -1},
+			}
+
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					_, err := NewRoomType(RoomTypeCreateInput{
+						AccommodationId: uuid.New(),
+						Name:            "スーペリアルーム",
+						Capacity:        tt.input,
+						HasPrivateBath:  true,
+						HasBalcony:      true,
+					})
+					if err == nil {
+						t.Fatal("エラーが返りませんでした")
+					}
+					if err.Error() != ErrInvalidCapacity.Error() {
+						t.Errorf("エラーメッセージが違います: got %q", err.Error())
+					}
+				})
+			}
+		})
+	})
+
+	t.Run("宿のID", func(t *testing.T) {
+		t.Run("指定されていないと、登録できない", func(t *testing.T) {
+			_, err := NewRoomType(RoomTypeCreateInput{
+				AccommodationId: uuid.Nil,
+				Name:            "スーペリアルーム",
+				Capacity:        10,
+				HasPrivateBath:  true,
+				HasBalcony:      true,
+			})
+			if err == nil {
+				t.Fatal("エラーが返りませんでした")
+			}
+			if err.Error() != ErrInvalidAccommodationId.Error() {
+				t.Errorf("エラーメッセージが違います: got %q", err.Error())
+			}
+		})
+	})
+}
 
 func TestCreateRoomType(t *testing.T) {
 	if testing.Short() {

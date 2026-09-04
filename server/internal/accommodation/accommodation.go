@@ -103,7 +103,7 @@ func (a *Accommodation) Save(ctx context.Context, db accommodationdb.DBTX) error
 	return nil
 }
 
-func FindById(ctx context.Context, db accommodationdb.DBTX, id uuid.UUID) (*Accommodation, error) {
+func FindAccommodationById(ctx context.Context, db accommodationdb.DBTX, id uuid.UUID) (*Accommodation, error) {
 	q := accommodationdb.New(db)
 
 	accommodationFromDB, err := q.GetAccommodation(ctx, id)
