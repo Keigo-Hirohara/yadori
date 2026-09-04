@@ -320,7 +320,7 @@ func TestSaveAccomodation(t *testing.T) {
 
 		require.NoError(t, accommodation.Save(ctx, pool))
 
-		got, err := FindById(ctx, pool, accommodation.ID())
+		got, err := FindAccommodationById(ctx, pool, accommodation.ID())
 
 		require.NoError(t, err)
 		require.Equal(t, accommodation.Name(), got.Name())
