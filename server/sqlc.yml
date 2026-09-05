@@ -60,3 +60,19 @@ sql:
             go_type: "time.Time"
           - db_type: "date"
             go_type: "time.Time"
+  - engine: "postgresql"
+    schema: "db/migrations"
+    queries: "db/queries/booking"
+    gen:
+      go:
+        package: "bookingdb"
+        out: "internal/booking/db"
+        sql_package: "pgx/v5"
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "uuid"
+            go_type: "github.com/google/uuid.UUID"
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+          - db_type: "date"
+            go_type: "time.Time"
