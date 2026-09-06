@@ -149,18 +149,18 @@ type Guest struct {
 }
 
 type Hold struct {
-	ID          uuid.UUID
-	InventoryID uuid.UUID
-	BookingID   uuid.UUID
-	Status      HoldStatus
-	ExpiredAt   pgtype.Timestamptz
-	SlotNo      int32
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID         uuid.UUID
+	RoomTypeID uuid.UUID
+	Date       time.Time
+	BookingID  uuid.UUID
+	Status     HoldStatus
+	ExpiredAt  pgtype.Timestamptz
+	SlotNo     int32
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 type Inventory struct {
-	ID                uuid.UUID
 	RoomTypeID        uuid.UUID
 	Date              time.Time
 	Fee               int32
