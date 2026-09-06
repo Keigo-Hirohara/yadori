@@ -12,15 +12,19 @@ import (
 	"github.com/google/uuid"
 )
 
-const getInventoriesById = `-- name: GetInventoriesById :one
-SELECT id, room_type_id, date, fee, quantity_available, is_closed, created_at, updated_at FROM inventories WHERE id = $1
+const getInventoriesByDateAndRoomTypeId = `-- name: GetInventoriesByDateAndRoomTypeId :one
+SELECT room_type_id, date, fee, quantity_available, is_closed, created_at, updated_at FROM inventories WHERE date = $1 AND room_type_id = $2
 `
 
-func (q *Queries) GetInventoriesById(ctx context.Context, id uuid.UUID) (Inventory, error) {
-	row := q.db.QueryRow(ctx, getInventoriesById, id)
+type GetInventoriesByDateAndRoomTypeIdParams struct {
+	Date       time.Time
+	RoomTypeID uuid.UUID
+}
+
+func (q *Queries) GetInventoriesByDateAndRoomTypeId(ctx context.Context, arg GetInventoriesByDateAndRoomTypeIdParams) (Inventory, error) {
+	row := q.db.QueryRow(ctx, getInventoriesByDateAndRoomTypeId, arg.Date, arg.RoomTypeID)
 	var i Inventory
 	err := row.Scan(
-		&i.ID,
 		&i.RoomTypeID,
 		&i.Date,
 		&i.Fee,
@@ -33,7 +37,7 @@ func (q *Queries) GetInventoriesById(ctx context.Context, id uuid.UUID) (Invento
 }
 
 const getInventoriesByRoomTypeId = `-- name: GetInventoriesByRoomTypeId :many
-SELECT id, room_type_id, date, fee, quantity_available, is_closed, created_at, updated_at FROM inventories WHERE room_type_id = $1
+SELECT room_type_id, date, fee, quantity_available, is_closed, created_at, updated_at FROM inventories WHERE room_type_id = $1
 `
 
 func (q *Queries) GetInventoriesByRoomTypeId(ctx context.Context, roomTypeID uuid.UUID) ([]Inventory, error) {
@@ -46,7 +50,6 @@ func (q *Queries) GetInventoriesByRoomTypeId(ctx context.Context, roomTypeID uui
 	for rows.Next() {
 		var i Inventory
 		if err := rows.Scan(
-			&i.ID,
 			&i.RoomTypeID,
 			&i.Date,
 			&i.Fee,
@@ -66,7 +69,7 @@ func (q *Queries) GetInventoriesByRoomTypeId(ctx context.Context, roomTypeID uui
 }
 
 const getInventoryByRoomTypeIdAndDateForUpdate = `-- name: GetInventoryByRoomTypeIdAndDateForUpdate :one
-SELECT id, room_type_id, date, fee, quantity_available, is_closed, created_at, updated_at FROM inventories
+SELECT room_type_id, date, fee, quantity_available, is_closed, created_at, updated_at FROM inventories
 WHERE room_type_id = $1 AND date = $2
 FOR UPDATE
 `
@@ -80,7 +83,6 @@ func (q *Queries) GetInventoryByRoomTypeIdAndDateForUpdate(ctx context.Context, 
 	row := q.db.QueryRow(ctx, getInventoryByRoomTypeIdAndDateForUpdate, arg.RoomTypeID, arg.Date)
 	var i Inventory
 	err := row.Scan(
-		&i.ID,
 		&i.RoomTypeID,
 		&i.Date,
 		&i.Fee,
@@ -92,58 +94,11 @@ func (q *Queries) GetInventoryByRoomTypeIdAndDateForUpdate(ctx context.Context, 
 	return i, err
 }
 
-const listHoldsByInventoryId = `-- name: ListHoldsByInventoryId :many
-SELECT id, inventory_id, booking_id, status, expired_at, slot_no, created_at, updated_at FROM holds WHERE inventory_id = $1 ORDER BY slot_no
-`
-
-func (q *Queries) ListHoldsByInventoryId(ctx context.Context, inventoryID uuid.UUID) ([]Hold, error) {
-	rows, err := q.db.Query(ctx, listHoldsByInventoryId, inventoryID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Hold
-	for rows.Next() {
-		var i Hold
-		if err := rows.Scan(
-			&i.ID,
-			&i.InventoryID,
-			&i.BookingID,
-			&i.Status,
-			&i.ExpiredAt,
-			&i.SlotNo,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const openInventoryByRoomTypeIdAndDate = `-- name: OpenInventoryByRoomTypeIdAndDate :exec
-UPDATE inventories SET is_closed = false WHERE room_type_id = $1 AND date = $2
-`
-
-type OpenInventoryByRoomTypeIdAndDateParams struct {
-	RoomTypeID uuid.UUID
-	Date       time.Time
-}
-
-func (q *Queries) OpenInventoryByRoomTypeIdAndDate(ctx context.Context, arg OpenInventoryByRoomTypeIdAndDateParams) error {
-	_, err := q.db.Exec(ctx, openInventoryByRoomTypeIdAndDate, arg.RoomTypeID, arg.Date)
-	return err
-}
-
 const upsertInventory = `-- name: UpsertInventory :exec
 INSERT INTO inventories (
-    id, room_type_id, fee, quantity_available, is_closed, date
+    room_type_id, fee, quantity_available, is_closed, date
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5
 )
 ON CONFLICT (id) DO UPDATE SET
     fee = EXCLUDED.fee,
@@ -153,7 +108,6 @@ ON CONFLICT (id) DO UPDATE SET
 `
 
 type UpsertInventoryParams struct {
-	ID                uuid.UUID
 	RoomTypeID        uuid.UUID
 	Fee               int32
 	QuantityAvailable int32
@@ -163,7 +117,6 @@ type UpsertInventoryParams struct {
 
 func (q *Queries) UpsertInventory(ctx context.Context, arg UpsertInventoryParams) error {
 	_, err := q.db.Exec(ctx, upsertInventory,
-		arg.ID,
 		arg.RoomTypeID,
 		arg.Fee,
 		arg.QuantityAvailable,
