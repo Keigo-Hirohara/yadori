@@ -14,7 +14,11 @@ export BOOKER_ISSUER
 export OPERATOR_ISSUER
 export AUTH_AUDIENCE
 
-.PHONY: help setup dev api worker admin booker migrate seed up db-up auth-up down db-reset test test-short sqlc build fmt
+DEPLOY_HOST ?= home-server
+DEPLOY_DIR ?= yadori
+DEPLOY_COMPOSE = docker compose --env-file ~/.config/yadori/.env -f deploy/compose.yml
+
+.PHONY: help setup dev api worker admin booker migrate seed up db-up auth-up down db-reset test test-short sqlc build fmt deploy deploy-sync deploy-seed deploy-logs deploy-ps deploy-down
 
 help:
 	@echo "make setup    依存をそろえる"
@@ -32,6 +36,9 @@ help:
 	@echo "make test     全テスト（DBを含む）とフロントのビルド検査"
 	@echo "make test-short DB不要な高速テストのみ"
 	@echo "make sqlc     SQLからコードを生成"
+	@echo "make deploy   自宅サーバー($(DEPLOY_HOST))に手動デプロイ（通常は main への push で自動）"
+	@echo "make deploy-seed  サーバーにデモデータを入れる"
+	@echo "make deploy-logs  サーバーのログを追う"
 
 setup:
 	cd server && go mod download
@@ -111,3 +118,24 @@ build:
 
 fmt:
 	cd server && go fmt ./...
+
+deploy-sync:
+	rsync -az --delete \
+		--exclude .git --exclude node_modules --exclude dist \
+		--exclude server/bin --exclude .env \
+		./ $(DEPLOY_HOST):$(DEPLOY_DIR)/
+
+deploy: deploy-sync
+	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) up -d --build --remove-orphans'
+
+deploy-seed:
+	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) run --rm --no-deps api /app/seed'
+
+deploy-logs:
+	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) logs -f --tail=100'
+
+deploy-ps:
+	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) ps'
+
+deploy-down:
+	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) down'

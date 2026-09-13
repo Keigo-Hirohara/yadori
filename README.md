@@ -163,6 +163,57 @@ make test-short
 make sqlc
 ```
 
+### 自宅サーバーへのデプロイ（LAN内）
+
+全部（PostgreSQL・Keycloak・API・ワーカー・フロント2つ）を Docker Compose で1台に載せます。
+構成は `deploy/compose.yml`、イメージは `server/Dockerfile` と `web/Dockerfile` です。
+
+**main に push すると自動でデプロイされます。** CI（テストとビルド）が通ったあと、
+サーバー上の GitHub Actions セルフホストランナーが `docker compose up -d --build` を実行します
+（`.github/workflows/ci.yml` の `deploy` ジョブ）。
+ランナーは GitHub へ外向きに接続するだけなので、ルーターの設定は不要です。
+
+#### サーバーの初期設定（1回だけ）
+
+1. GitHub で登録トークンを発行する
+   リポジトリの Settings → Actions → Runners → New self-hosted runner → Linux。
+   表示される `--token XXXX` の値だけを控える（1時間で失効）
+2. サーバーで実行する（Docker のインストール・ランナーの登録・サービス化をまとめて行う）
+
+   ```bash
+   ssh home-server
+   git clone https://github.com/Keigo-Hirohara/yadori.git && cd yadori
+   ./deploy/setup-server.sh <登録トークン>
+   nano ~/.config/yadori/.env     # PUBLIC_HOST（LAN の IP）とパスワードを変える
+   ```
+
+   `~/.config/yadori/.env` は Git の外にあり、サーバーにだけ置かれます。
+3. デモデータを入れる（手元から）
+
+   ```bash
+   make deploy-seed
+   ```
+
+以降は push するだけです。手動でデプロイしたいときは `make deploy`（rsync で同期して起動）。
+接続先は `~/.ssh/config` のホスト名で、`.env` の `DEPLOY_HOST` で指定します（既定は `home-server`）。
+`make deploy-logs` / `make deploy-ps` / `make deploy-down` も同じ要領です。
+
+| | URL |
+|---|---|
+| 予約者向けサイト | `http://<PUBLIC_HOST>:5174` |
+| 管理画面 | `http://<PUBLIC_HOST>:5173` |
+| API | `http://<PUBLIC_HOST>:8080` |
+| Keycloak | `http://<PUBLIC_HOST>:8180`（admin / `KC_ADMIN_PASSWORD`） |
+
+Keycloak の realm 定義は `localhost` 向けに書かれているので、起動前に `realm-render` が
+リダイレクト先を `PUBLIC_HOST` に置き換えてから取り込みます。
+取り込みは realm が無いときだけ行われるため、`PUBLIC_HOST` を変えたときは
+`docker compose -f deploy/compose.yml down -v` で作り直してください（DBも消えます）。
+
+セルフホストランナーは公開リポジトリでも安全側に倒しています。`deploy` ジョブは
+`main` への push でしか動かず、テストのジョブは GitHub のランナーで走るので、
+フォークからのプルリクエストが自宅サーバーでコードを実行することはありません。
+
 ---
 
 ## ディレクトリ構成

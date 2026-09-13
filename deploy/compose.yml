@@ -1,0 +1,115 @@
+name: yadori
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: yadori
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: yadori
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yadori"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  realm-render:
+    image: alpine:3.21
+    volumes:
+      - ../auth/realms:/in:ro
+      - realms:/out
+    command: >
+      sh -c 'for f in /in/*.json; do
+        sed -e "s#http://localhost:5173#http://${PUBLIC_HOST}:5173#g"
+            -e "s#http://localhost:5174#http://${PUBLIC_HOST}:5174#g"
+            "$$f" > "/out/$$(basename "$$f")";
+      done'
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD}
+      KC_HTTP_PORT: 8080
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "8180:8080"
+    volumes:
+      - realms:/opt/keycloak/data/import:ro
+    depends_on:
+      realm-render:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+
+  migrate:
+    build: ../server
+    command: ["/app/migrate", "up"]
+    environment:
+      DATABASE_URL: postgres://yadori:${DB_PASSWORD}@db:5432/yadori?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: ../server
+    command: ["/app/api"]
+    environment:
+      DATABASE_URL: postgres://yadori:${DB_PASSWORD}@db:5432/yadori?sslmode=disable
+      ALLOWED_ORIGINS: http://${PUBLIC_HOST}:5173,http://${PUBLIC_HOST}:5174
+      BOOKER_ISSUER: http://${PUBLIC_HOST}:8180/realms/yadori-booker
+      OPERATOR_ISSUER: http://${PUBLIC_HOST}:8180/realms/yadori-operator
+      AUTH_AUDIENCE: yadori-api
+    ports:
+      - "8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: ../server
+    command: ["/app/worker"]
+    environment:
+      DATABASE_URL: postgres://yadori:${DB_PASSWORD}@db:5432/yadori?sslmode=disable
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  admin:
+    build:
+      context: ../web
+      args:
+        APP: admin
+        VITE_API_BASE_URL: http://${PUBLIC_HOST}:8080/api/v1
+        VITE_OIDC_AUTHORITY: http://${PUBLIC_HOST}:8180/realms/yadori-operator
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
+  booker:
+    build:
+      context: ../web
+      args:
+        APP: booker
+        VITE_API_BASE_URL: http://${PUBLIC_HOST}:8080/api/v1
+        VITE_OIDC_AUTHORITY: http://${PUBLIC_HOST}:8180/realms/yadori-booker
+    ports:
+      - "5174:80"
+    restart: unless-stopped
+
+volumes:
+  db:
+  realms:

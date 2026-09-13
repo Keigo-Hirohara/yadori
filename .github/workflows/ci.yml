@@ -54,3 +54,29 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+
+  deploy:
+    name: 自宅サーバーへデプロイ
+    needs: [server, web]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, yadori-home]
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ビルドして起動
+        run: docker compose --env-file "$HOME/.config/yadori/.env" -f deploy/compose.yml up -d --build --remove-orphans
+
+      - name: 疎通確認
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8080/healthz && exit 0
+            sleep 2
+          done
+          docker compose --env-file "$HOME/.config/yadori/.env" -f deploy/compose.yml logs --tail=50 api
+          exit 1
+
+      - name: 使わなくなったイメージを削除
+        run: docker image prune -f
