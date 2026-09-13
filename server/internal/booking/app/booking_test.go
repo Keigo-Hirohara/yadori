@@ -12,11 +12,12 @@ import (
 )
 
 type fakeStore struct {
-	bookings map[uuid.UUID]*domain.Booking
+	bookings  map[uuid.UUID]*domain.Booking
+	createdAt map[uuid.UUID]time.Time
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{bookings: map[uuid.UUID]*domain.Booking{}}
+	return &fakeStore{bookings: map[uuid.UUID]*domain.Booking{}, createdAt: map[uuid.UUID]time.Time{}}
 }
 
 func (s *fakeStore) WithinTx(ctx context.Context, fn func(ctx context.Context, repo Repository) error) error {
@@ -36,8 +37,21 @@ func (s *fakeStore) FindForUpdate(ctx context.Context, id uuid.UUID) (*domain.Bo
 }
 
 func (s *fakeStore) Save(ctx context.Context, b *domain.Booking) error {
+	if _, ok := s.createdAt[b.Id()]; !ok {
+		s.createdAt[b.Id()] = appNow
+	}
 	s.bookings[b.Id()] = b
 	return nil
+}
+
+func (s *fakeStore) ListStaleTemporaryHoldIds(ctx context.Context, before time.Time) ([]uuid.UUID, error) {
+	ids := make([]uuid.UUID, 0)
+	for id, b := range s.bookings {
+		if b.Status() == domain.TemporaryHold && s.createdAt[id].Before(before) {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
 }
 
 func (s *fakeStore) ListSummariesByBookerId(ctx context.Context, bookerId uuid.UUID) ([]BookingSummary, error) {
@@ -69,10 +83,11 @@ type fakeInventory struct {
 	feePerNight int
 	soldOutOn   *time.Time
 
-	held     []time.Time
-	holdIds  []uuid.UUID
-	released []time.Time
-	calls    []string
+	held            []time.Time
+	holdIds         []uuid.UUID
+	released        []time.Time
+	calls           []string
+	alreadyReleased bool
 }
 
 func (f *fakeInventory) Hold(
@@ -103,6 +118,9 @@ func (f *fakeInventory) Confirm(ctx context.Context, roomTypeId uuid.UUID, date 
 
 func (f *fakeInventory) Release(ctx context.Context, roomTypeId uuid.UUID, date time.Time, bookingId uuid.UUID) error {
 	f.calls = append(f.calls, "release")
+	if f.alreadyReleased {
+		return ErrHoldAlreadyReleased
+	}
 	f.released = append(f.released, date)
 	return nil
 }
@@ -326,5 +344,75 @@ func TestService_ChangeGuests(t *testing.T) {
 
 		require.ErrorIs(t, err, domain.ErrOverCapacity)
 		require.Equal(t, 1, b.GuestCount())
+	})
+}
+
+func TestService_ExpireStale(t *testing.T) {
+	t.Run("期限を過ぎた仮予約はキャンセルされ、在庫が解放される", func(t *testing.T) {
+		inv := &fakeInventory{feePerNight: 10000}
+		s, _ := newTestService(t, 2, inv)
+		b, err := s.Book(context.Background(), threeNights(), appNow)
+		require.NoError(t, err)
+		inv.calls = nil
+
+		expired, err := s.ExpireStale(context.Background(), appNow.Add(HoldTTL+time.Second))
+
+		require.NoError(t, err)
+		require.Equal(t, 1, expired)
+		require.Equal(t, domain.Cancelled, b.Status())
+		require.Len(t, inv.released, 3)
+	})
+
+	t.Run("期限内の仮予約は触らない", func(t *testing.T) {
+		inv := &fakeInventory{feePerNight: 10000}
+		s, _ := newTestService(t, 2, inv)
+		b, err := s.Book(context.Background(), threeNights(), appNow)
+		require.NoError(t, err)
+
+		expired, err := s.ExpireStale(context.Background(), appNow.Add(HoldTTL-time.Second))
+
+		require.NoError(t, err)
+		require.Equal(t, 0, expired)
+		require.Equal(t, domain.TemporaryHold, b.Status())
+	})
+
+	t.Run("確定済みの予約は期限切れの対象にならない", func(t *testing.T) {
+		inv := &fakeInventory{feePerNight: 10000}
+		s, _ := newTestService(t, 2, inv)
+		b, err := s.Book(context.Background(), threeNights(), appNow)
+		require.NoError(t, err)
+		require.NoError(t, s.Confirm(context.Background(), b.Id()))
+
+		expired, err := s.ExpireStale(context.Background(), appNow.Add(24*time.Hour))
+
+		require.NoError(t, err)
+		require.Equal(t, 0, expired)
+		require.Equal(t, domain.Confirmed, b.Status())
+	})
+
+	t.Run("期限切れ回収で確保が先に消えていても予約はキャンセルできる", func(t *testing.T) {
+		inv := &fakeInventory{feePerNight: 10000}
+		s, _ := newTestService(t, 2, inv)
+		b, err := s.Book(context.Background(), threeNights(), appNow)
+		require.NoError(t, err)
+		inv.alreadyReleased = true
+
+		expired, err := s.ExpireStale(context.Background(), appNow.Add(HoldTTL+time.Second))
+
+		require.NoError(t, err)
+		require.Equal(t, 1, expired)
+		require.Equal(t, domain.Cancelled, b.Status())
+	})
+
+	t.Run("期限切れの仮予約はキャンセル料がかからない", func(t *testing.T) {
+		inv := &fakeInventory{feePerNight: 10000}
+		s, _ := newTestService(t, 2, inv)
+		b, err := s.Book(context.Background(), threeNights(), appNow)
+		require.NoError(t, err)
+
+		_, err = s.ExpireStale(context.Background(), appNow.Add(HoldTTL+time.Second))
+
+		require.NoError(t, err)
+		require.Equal(t, 0, b.CancellationFee().Amount())
 	})
 }

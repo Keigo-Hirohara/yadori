@@ -139,6 +139,32 @@ func (q *Queries) ListBookingsByBookerId(ctx context.Context, bookerID uuid.UUID
 	return items, nil
 }
 
+const listStaleTemporaryHoldIds = `-- name: ListStaleTemporaryHoldIds :many
+SELECT id FROM bookings
+WHERE status = 'temporary_hold' AND created_at < $1
+ORDER BY created_at
+`
+
+func (q *Queries) ListStaleTemporaryHoldIds(ctx context.Context, createdAt time.Time) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listStaleTemporaryHoldIds, createdAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertBooking = `-- name: UpsertBooking :exec
 INSERT INTO bookings (
     id, booker_id, room_type_id, total_fee, checkin_date, checkout_date, status, cancellation_fee

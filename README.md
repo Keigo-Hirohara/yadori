@@ -117,7 +117,7 @@ make migrate
 # 動作確認用のデモデータを入れる（宿3件・部屋タイプ6件・60日分の在庫）
 make seed
 
-# API・管理画面・予約者向けサイトをまとめて起動
+# API・ワーカー・管理画面・予約者向けサイトをまとめて起動
 make dev
 ```
 
@@ -127,7 +127,7 @@ make dev
 | 管理画面（宿の運営者向け） | http://localhost:5173 |
 | 予約者向けサイト | http://localhost:5174 |
 
-`Ctrl-C` で3つとも止まります。個別に動かす場合は `make api` / `make admin` / `make booker`。
+`Ctrl-C` で4つとも止まります。個別に動かす場合は `make api` / `make worker` / `make admin` / `make booker`。
 
 接続先は `.env`（`.env.example` をコピー）で変えられます。
 

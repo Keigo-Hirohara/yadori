@@ -8,12 +8,14 @@ ALLOWED_ORIGINS ?= http://localhost:5173,http://localhost:5174
 export DATABASE_URL
 export ALLOWED_ORIGINS
 
-.PHONY: help setup dev api admin booker migrate seed db-up db-down db-reset test test-short sqlc build fmt
+.PHONY: help setup dev api worker admin booker migrate seed db-up db-down db-reset test test-short sqlc build fmt
 
 help:
 	@echo "make setup    依存をそろえる"
-	@echo "make dev      API(:8080) 管理画面(:5173) 予約者向けサイト(:5174) をまとめて起動"
+	@echo "make dev      API(:8080) ワーカー 管理画面(:5173) 予約者向けサイト(:5174) をまとめて起動"
 	@echo "make api      APIサーバーだけ起動"
+	@echo "make worker   期限切れ回収ワーカーだけ起動"
+	@echo "make collect  期限切れ回収を1回だけ実行"
 	@echo "make admin    管理画面だけ起動"
 	@echo "make booker   予約者向けサイトだけ起動"
 	@echo "make migrate  マイグレーションを適用"
@@ -31,12 +33,19 @@ setup:
 dev:
 	@trap 'kill 0' EXIT INT TERM; \
 	$(MAKE) --no-print-directory api & \
+	$(MAKE) --no-print-directory worker & \
 	$(MAKE) --no-print-directory admin & \
 	$(MAKE) --no-print-directory booker & \
 	wait
 
 api:
 	cd server && go run ./cmd/api
+
+worker:
+	cd server && go run ./cmd/worker
+
+collect:
+	cd server && go run ./cmd/worker -once
 
 admin:
 	npm --prefix web/admin run dev
@@ -78,6 +87,7 @@ sqlc:
 
 build:
 	cd server && go build -o bin/api ./cmd/api
+	cd server && go build -o bin/worker ./cmd/worker
 	npm --prefix web/admin run build
 	npm --prefix web/booker run build
 

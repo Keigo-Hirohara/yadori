@@ -2,12 +2,14 @@ package infra
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/Keigo-Hirohara/yadori/internal/accommodation"
 	accommodationdb "github.com/Keigo-Hirohara/yadori/internal/accommodation/db"
 	bookingapp "github.com/Keigo-Hirohara/yadori/internal/booking/app"
 	inventoryapp "github.com/Keigo-Hirohara/yadori/internal/inventory/app"
+	inventorydomain "github.com/Keigo-Hirohara/yadori/internal/inventory/domain"
 	"github.com/google/uuid"
 )
 
@@ -51,7 +53,11 @@ func (h *InventoryHolder) Confirm(ctx context.Context, roomTypeId uuid.UUID, dat
 }
 
 func (h *InventoryHolder) Release(ctx context.Context, roomTypeId uuid.UUID, date time.Time, bookingId uuid.UUID) error {
-	return h.inventory.Release(ctx, roomTypeId, date, bookingId)
+	err := h.inventory.Release(ctx, roomTypeId, date, bookingId)
+	if errors.Is(err, inventorydomain.ErrHoldNotFound) || errors.Is(err, inventorydomain.ErrInventoryNotFound) {
+		return bookingapp.ErrHoldAlreadyReleased
+	}
+	return err
 }
 
 type RoomTypeFinder struct {
