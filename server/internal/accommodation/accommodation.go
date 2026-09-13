@@ -135,6 +135,29 @@ func (a *Accommodation) Prefecture() string {
 	return a.prefecture
 }
 
+func ListAccommodations(ctx context.Context, db accommodationdb.DBTX) ([]Accommodation, error) {
+	q := accommodationdb.New(db)
+
+	rows, err := q.ListAccommodations(ctx)
+	if err != nil {
+		return nil, ErrAccommodationNotFound
+	}
+
+	accommodations := make([]Accommodation, 0, len(rows))
+	for _, row := range rows {
+		accommodations = append(accommodations, reconstruct(row))
+	}
+	return accommodations, nil
+}
+
+func (a *Accommodation) StreetAddress() string {
+	return a.streetAddress
+}
+
+func (a *Accommodation) Building() string {
+	return a.building
+}
+
 func (a *Accommodation) City() string {
 	return a.city
 }

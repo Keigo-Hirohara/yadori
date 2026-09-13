@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ---- テスト用のヘルパー ----
-
 var (
 	now          = time.Date(2026, 12, 20, 10, 0, 0, 0, time.UTC)
 	fourDayLater = time.Date(2026, 12, 24, 0, 0, 0, 0, time.UTC)
@@ -17,7 +15,6 @@ var (
 
 func getThirtyMinutesLater() time.Time { return now.Add(30 * time.Minute) }
 
-// 販売可能数を指定して在庫を作る
 func newInventoryForTest(t *testing.T, quantity int) *Inventory {
 	t.Helper()
 	fee, err := NewFee(CreateNewFeeInput{
@@ -27,67 +24,66 @@ func newInventoryForTest(t *testing.T, quantity int) *Inventory {
 	id, err := NewInventoryId(CreateNewInventoryIdInput{
 		RoomTypeId: uuid.New(),
 		Date:       fourDayLater,
+		Now:        now,
 	})
 	require.NoError(t, err)
-	inv, err := Publish(id, quantity, fee)
+	inv, err := Register(id, quantity, fee)
 	require.NoError(t, err)
 	return inv
 }
 
-// 確保を1件追加して、その確保IDを返す
 func addHold(t *testing.T, inv *Inventory) uuid.UUID {
 	t.Helper()
 	holdID := uuid.New()
 	_, err := inv.Hold(HoldInput{
+		HoldId:     uuid.New(),
 		BookingId:  holdID,
 		RoomTypeId: uuid.New(),
 		ExpiredAt:  getThirtyMinutesLater(),
-		date:       now,
+		Date:       now,
 	})
 	require.NoError(t, err)
 	return holdID
 }
 
-// ---- Publish ----
-
-func TestPublish(t *testing.T) {
+func TestRegister(t *testing.T) {
 	fee, _ := NewFee(CreateNewFeeInput{Amount: 15000})
 	inventoryId, _ := NewInventoryId(CreateNewInventoryIdInput{
 		RoomTypeId: uuid.New(),
 		Date:       fourDayLater,
+		Now:        now,
 	})
 
-	t.Run("販売可能数が1以上なら公開できる", func(t *testing.T) {
-		inv, err := Publish(inventoryId, 10, fee)
+	t.Run("販売可能数が1以上なら登録できる", func(t *testing.T) {
+		inv, err := Register(inventoryId, 10, fee)
 		require.NoError(t, err)
 		require.Equal(t, 10, inv.QuantityAvailable())
-		// require.Equal(t, 10, inv.Available())
+
 		require.False(t, inv.IsClosed())
 	})
 
-	t.Run("販売可能数が0でも公開できる", func(t *testing.T) {
-		inv, err := Publish(inventoryId, 0, fee)
+	t.Run("販売可能数が0でも登録できる", func(t *testing.T) {
+		inv, err := Register(inventoryId, 0, fee)
 		require.NoError(t, err)
 		require.Equal(t, 0, inv.Available())
 	})
 
-	t.Run("販売可能数が負なら公開できない", func(t *testing.T) {
-		_, err := Publish(inventoryId, -1, fee)
+	t.Run("販売可能数が負なら登録できない", func(t *testing.T) {
+		_, err := Register(inventoryId, -1, fee)
 		require.ErrorIs(t, err, ErrInvalidQuantity)
 	})
 }
-
-// ---- Hold（中核） ----
 
 func TestInventory_Hold(t *testing.T) {
 	t.Run("空きがあれば確保できる", func(t *testing.T) {
 		inv := newInventoryForTest(t, 3)
 
 		slotNo, err := inv.Hold(HoldInput{
+			HoldId:     uuid.New(),
 			BookingId:  uuid.New(),
 			RoomTypeId: uuid.New(),
 			ExpiredAt:  getThirtyMinutesLater(),
-			date:       now,
+			Date:       now,
 		})
 
 		require.NoError(t, err)
@@ -101,10 +97,11 @@ func TestInventory_Hold(t *testing.T) {
 
 		for i := 1; i <= 3; i++ {
 			slotNo, err := inv.Hold(HoldInput{
+				HoldId:     uuid.New(),
 				BookingId:  uuid.New(),
 				RoomTypeId: uuid.New(),
 				ExpiredAt:  getThirtyMinutesLater(),
-				date:       now,
+				Date:       now,
 			})
 			require.NoError(t, err)
 			require.Equal(t, i, slotNo)
@@ -117,10 +114,11 @@ func TestInventory_Hold(t *testing.T) {
 		addHold(t, inv)
 
 		_, err := inv.Hold(HoldInput{
+			HoldId:     uuid.New(),
 			BookingId:  uuid.New(),
 			RoomTypeId: uuid.New(),
 			ExpiredAt:  getThirtyMinutesLater(),
-			date:       now,
+			Date:       now,
 		})
 
 		require.ErrorIs(t, err, ErrSoldOut)
@@ -131,10 +129,11 @@ func TestInventory_Hold(t *testing.T) {
 		inv := newInventoryForTest(t, 0)
 
 		_, err := inv.Hold(HoldInput{
+			HoldId:     uuid.New(),
 			BookingId:  uuid.New(),
 			RoomTypeId: uuid.New(),
 			ExpiredAt:  getThirtyMinutesLater(),
-			date:       now,
+			Date:       now,
 		})
 
 		require.ErrorIs(t, err, ErrSoldOut)
@@ -145,10 +144,11 @@ func TestInventory_Hold(t *testing.T) {
 		require.NoError(t, inv.Close())
 
 		_, err := inv.Hold(HoldInput{
+			HoldId:     uuid.New(),
 			BookingId:  uuid.New(),
 			RoomTypeId: uuid.New(),
 			ExpiredAt:  getThirtyMinutesLater(),
-			date:       now,
+			Date:       now,
 		})
 		require.ErrorIs(t, err, ErrClosed)
 		require.Equal(t, 0, inv.HoldCount())
@@ -159,10 +159,11 @@ func TestInventory_Hold(t *testing.T) {
 		holdId := addHold(t, inv)
 
 		_, err := inv.Hold(HoldInput{
+			HoldId:     uuid.New(),
 			BookingId:  holdId,
 			RoomTypeId: uuid.New(),
 			ExpiredAt:  getThirtyMinutesLater(),
-			date:       now,
+			Date:       now,
 		})
 
 		require.ErrorIs(t, err, ErrDuplicatedHold)
@@ -173,10 +174,11 @@ func TestInventory_Hold(t *testing.T) {
 		inv := newInventoryForTest(t, 3)
 
 		_, err := inv.Hold(HoldInput{
+			HoldId:     uuid.New(),
 			BookingId:  uuid.New(),
 			RoomTypeId: uuid.New(),
 			ExpiredAt:  now.Add(-time.Minute),
-			date:       now,
+			Date:       now,
 		})
 
 		require.ErrorIs(t, err, ErrInvalidExpiration)
@@ -186,34 +188,53 @@ func TestInventory_Hold(t *testing.T) {
 		inv := newInventoryForTest(t, 3)
 
 		_, err := inv.Hold(HoldInput{
+			HoldId:     uuid.New(),
 			BookingId:  uuid.New(),
 			RoomTypeId: uuid.New(),
 			ExpiredAt:  now,
-			date:       now,
+			Date:       now,
 		})
 
 		require.ErrorIs(t, err, ErrInvalidExpiration)
 	})
 
+	t.Run("確保IDは渡されたものがそのまま使われる", func(t *testing.T) {
+		inv := newInventoryForTest(t, 3)
+		holdId := uuid.New()
+		bookingId := uuid.New()
+
+		_, err := inv.Hold(HoldInput{
+			HoldId:     holdId,
+			BookingId:  bookingId,
+			RoomTypeId: uuid.New(),
+			ExpiredAt:  getThirtyMinutesLater(),
+			Date:       now,
+		})
+
+		require.NoError(t, err)
+		h, ok := inv.FindHold(bookingId)
+		require.True(t, ok)
+		require.Equal(t, holdId, h.Id())
+	})
+
 	t.Run("解放された枠番号は再利用される", func(t *testing.T) {
 		inv := newInventoryForTest(t, 3)
-		h1 := addHold(t, inv) // slot 1
-		addHold(t, inv)       // slot 2
+		h1 := addHold(t, inv)
+		addHold(t, inv)
 		require.NoError(t, inv.Release(h1))
 
 		slotNo, err := inv.Hold(HoldInput{
+			HoldId:     uuid.New(),
 			BookingId:  uuid.New(),
 			RoomTypeId: uuid.New(),
 			ExpiredAt:  getThirtyMinutesLater(),
-			date:       now,
+			Date:       now,
 		})
 
 		require.NoError(t, err)
 		require.Equal(t, 1, slotNo)
 	})
 }
-
-// ---- StartPayment ----
 
 func TestInventory_StartPayment(t *testing.T) {
 	t.Run("仮確保を決済中にできる", func(t *testing.T) {
@@ -258,8 +279,6 @@ func TestInventory_StartPayment(t *testing.T) {
 	})
 }
 
-// ---- Confirm ----
-
 func TestInventory_Confirm(t *testing.T) {
 	t.Run("決済中を確定にできる", func(t *testing.T) {
 		inv := newInventoryForTest(t, 3)
@@ -291,8 +310,6 @@ func TestInventory_Confirm(t *testing.T) {
 		require.ErrorIs(t, err, ErrHoldNotFound)
 	})
 }
-
-// ---- Release ----
 
 func TestInventory_Release(t *testing.T) {
 	t.Run("確保を解放できる", func(t *testing.T) {
@@ -329,8 +346,6 @@ func TestInventory_Release(t *testing.T) {
 	})
 }
 
-// ---- CollectExpired ----
-
 func TestInventory_CollectExpired(t *testing.T) {
 	t.Run("期限切れの仮確保が回収される", func(t *testing.T) {
 		inv := newInventoryForTest(t, 3)
@@ -357,7 +372,6 @@ func TestInventory_CollectExpired(t *testing.T) {
 		inv := newInventoryForTest(t, 3)
 		addHold(t, inv)
 
-		// NOTE: 実行時間によって期限ちょうどのテストにはならないかも
 		collected := inv.CollectExpired(getThirtyMinutesLater())
 
 		require.Equal(t, 0, collected)
@@ -390,18 +404,20 @@ func TestInventory_CollectExpired(t *testing.T) {
 		inv := newInventoryForTest(t, 3)
 		expiredBookingId := uuid.New()
 		_, err := inv.Hold(HoldInput{
+			HoldId:     uuid.New(),
 			BookingId:  expiredBookingId,
 			RoomTypeId: uuid.New(),
 			ExpiredAt:  now.Add(10 * time.Minute),
-			date:       now,
+			Date:       now,
 		})
 		require.NoError(t, err)
 		unexpiredBookingId := uuid.New()
 		_, err = inv.Hold(HoldInput{
+			HoldId:     uuid.New(),
 			BookingId:  unexpiredBookingId,
 			RoomTypeId: uuid.New(),
 			ExpiredAt:  now.Add(60 * time.Minute),
-			date:       now,
+			Date:       now,
 		})
 		require.NoError(t, err)
 
@@ -413,8 +429,6 @@ func TestInventory_CollectExpired(t *testing.T) {
 		require.True(t, ok)
 	})
 }
-
-// ---- ChangeQuantity ----
 
 func TestInventory_ChangeQuantity(t *testing.T) {
 	t.Run("販売可能数を増やせる", func(t *testing.T) {
@@ -456,8 +470,6 @@ func TestInventory_ChangeQuantity(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidQuantity)
 	})
 }
-
-// ---- Close / Reopen ----
 
 func TestInventory_Close(t *testing.T) {
 	t.Run("販売を停止できる", func(t *testing.T) {
@@ -506,10 +518,11 @@ func TestInventory_Reopen(t *testing.T) {
 		require.NoError(t, inv.Reopen())
 
 		_, err := inv.Hold(HoldInput{
+			HoldId:     uuid.New(),
 			BookingId:  uuid.New(),
 			RoomTypeId: uuid.New(),
 			ExpiredAt:  getThirtyMinutesLater(),
-			date:       now,
+			Date:       now,
 		})
 
 		require.NoError(t, err)
@@ -523,8 +536,6 @@ func TestInventory_Reopen(t *testing.T) {
 		require.ErrorIs(t, err, ErrNotClosed)
 	})
 }
-
-// ---- ChangeFee ----
 
 func TestInventory_ChangeFee(t *testing.T) {
 	t.Run("料金を変更できる", func(t *testing.T) {

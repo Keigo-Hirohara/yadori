@@ -101,25 +101,40 @@ Webhook との二重経路と定期照合による復旧手段を用意してい
 ### 必要なもの
 
 - Go 1.23+
-- Docker / Docker Compose
+- Node.js 20+
+- Docker（PostgreSQL とテスト用コンテナに使う）
 
 ### 起動
 
 ```bash
-# DBを起動
-make up
+# 依存をそろえる（最初に1度）
+make setup
 
-# マイグレーション適用
-make migrate-up
+# PostgreSQL を起動してマイグレーションを適用
+make db-up
+make migrate
 
-# sqlc でコード生成
-make sqlc
+# 動作確認用のデモデータを入れる（宿3件・部屋タイプ6件・60日分の在庫）
+make seed
+
+# API・管理画面・予約者向けサイトをまとめて起動
+make dev
 ```
+
+| | URL |
+|---|---|
+| API | http://localhost:8080 |
+| 管理画面（宿の運営者向け） | http://localhost:5173 |
+| 予約者向けサイト | http://localhost:5174 |
+
+`Ctrl-C` で3つとも止まります。個別に動かす場合は `make api` / `make admin` / `make booker`。
+
+接続先は `.env`（`.env.example` をコピー）で変えられます。
 
 ### テスト
 
 ```bash
-# 全テスト（DBを含む）
+# 全テスト（DBを含む。Docker が要る）
 make test
 
 # DB不要な高速テストのみ
@@ -127,6 +142,12 @@ make test-short
 ```
 
 並行制御の検証のため `-race` を常に有効にしています。
+
+### コード生成
+
+```bash
+make sqlc
+```
 
 ---
 

@@ -1,0 +1,1 @@
+ALTER TABLE holds DROP CONSTRAINT fk_holds_inventory;

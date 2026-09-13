@@ -41,3 +41,9 @@ go.work.sum
 
 # Vendor（使う場合は削除）
 /vendor/
+# フロントエンド
+node_modules/
+web/*/dist/
+
+# サーバー
+server/bin/

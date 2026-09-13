@@ -169,7 +169,6 @@ func TestCreateRoomType(t *testing.T) {
 	})
 
 	t.Run("作成した宿を保存できる", func(t *testing.T) {
-
 		accommodation, err := NewAccommodation(AccommodationCreateInput{
 			Name:          "舞浜ホテル",
 			PhoneNumber:   "04712344321",
@@ -281,6 +280,5 @@ func TestListRoomTypesByAccommodation(t *testing.T) {
 	}
 
 	t.Run("宿が提供する部屋タイプの一覧を取得できる", func(t *testing.T) {
-
 	})
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// foreignKeyViolation は PostgreSQL の外部キー制約違反のエラーコード
 const foreignKeyViolation = "23503"
 
 var (
@@ -74,7 +73,6 @@ func (r *RoomType) Save(ctx context.Context, db accommodationdb.DBTX) error {
 	})
 
 	if err != nil {
-		// 宿が存在するかを判定できるのはDBだけなので、外部キー違反をここで業務の言葉に翻訳する
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == foreignKeyViolation {
 			return ErrInvalidAccommodationId
@@ -95,6 +93,21 @@ func FindRoomTypeById(ctx context.Context, db accommodationdb.DBTX, id uuid.UUID
 	}
 	result := reconstructRoomType(roomTypeFromDB)
 	return &result, nil
+}
+
+func ListRoomTypesByAccommodationId(ctx context.Context, db accommodationdb.DBTX, accommodationId uuid.UUID) ([]RoomType, error) {
+	q := accommodationdb.New(db)
+
+	rows, err := q.ListRoomTypesByAccommodation(ctx, accommodationId)
+	if err != nil {
+		return nil, ErrRoomTypeNotFound
+	}
+
+	roomTypes := make([]RoomType, 0, len(rows))
+	for _, row := range rows {
+		roomTypes = append(roomTypes, reconstructRoomType(row))
+	}
+	return roomTypes, nil
 }
 
 func (r *RoomType) ID() uuid.UUID {
