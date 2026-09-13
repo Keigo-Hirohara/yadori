@@ -18,6 +18,8 @@ var (
 	ErrInvalidExpiration  = errors.New("確保の期限は現在より後でなければなりません")
 	ErrHoldNotFound       = errors.New("確保が見つかりません")
 	ErrInvalidTransition  = errors.New("この状態からは遷移できません")
+	ErrInventoryNotFound  = errors.New("在庫が見つかりません")
+	ErrAlreadyRegistered  = errors.New("この日の販売枠はすでに登録されています")
 )
 
 type Inventory struct {
@@ -29,14 +31,14 @@ type Inventory struct {
 }
 
 type HoldInput struct {
+	HoldId     uuid.UUID
 	BookingId  uuid.UUID
 	RoomTypeId uuid.UUID
 	ExpiredAt  time.Time
-	date       time.Time // 判定の基準となる現在時刻
+	Date       time.Time
 }
 
-// Publish は販売枠を公開する。
-func Publish(id *InventoryId, quantity int, fee *Fee) (*Inventory, error) {
+func Register(id *InventoryId, quantity int, fee *Fee) (*Inventory, error) {
 	if err := validQuantity(quantity); err != nil {
 		return nil, err
 	}
@@ -49,14 +51,24 @@ func Publish(id *InventoryId, quantity int, fee *Fee) (*Inventory, error) {
 	}, nil
 }
 
-// ---- 宿側の操作 ----
+func Reconstruct(id *InventoryId, quantityAvailable int, fee *Fee, isClosed bool, holds []Hold) *Inventory {
+	if holds == nil {
+		holds = []Hold{}
+	}
+	return &Inventory{
+		id:                id,
+		holds:             holds,
+		fee:               fee,
+		quantityAvailable: quantityAvailable,
+		isClosed:          isClosed,
+	}
+}
 
-// ChangeQuantity は販売可能数を変更する。確保済みの枠を割り込む変更は拒否する。
 func (inv *Inventory) ChangeQuantity(n int) error {
 	if err := validQuantity(n); err != nil {
 		return err
 	}
-	// 解放によって枠番号が飛んでいる場合があるため、件数ではなく最大の枠番号で判定する
+
 	if n < inv.maxSlotNo() {
 		return ErrQuantityBelowHolds
 	}
@@ -69,7 +81,6 @@ func (inv *Inventory) ChangeFee(f *Fee) error {
 	return nil
 }
 
-// Close はクローズアウトする。枠数と既存の確保はそのまま保持する。
 func (inv *Inventory) Close() error {
 	if inv.isClosed {
 		return ErrAlreadyClosed
@@ -86,14 +97,12 @@ func (inv *Inventory) Reopen() error {
 	return nil
 }
 
-// ---- 確保のライフサイクル ----
-
-// Hold は空いている最小の枠番号を確保し、その枠番号を返す。
 func (inv *Inventory) Hold(input HoldInput) (int, error) {
 	if inv.isClosed {
 		return 0, ErrClosed
 	}
-	if !input.ExpiredAt.After(input.date) {
+
+	if !input.ExpiredAt.After(input.Date) {
 		return 0, ErrInvalidExpiration
 	}
 	if _, ok := inv.FindHold(input.BookingId); ok {
@@ -107,7 +116,7 @@ func (inv *Inventory) Hold(input HoldInput) (int, error) {
 
 	expiredAt := input.ExpiredAt
 	inv.holds = append(inv.holds, Hold{
-		id:        uuid.New(),
+		id:        input.HoldId,
 		bookingId: input.BookingId,
 		slotNo:    slotNo,
 		status:    TemporaryHold,
@@ -116,7 +125,6 @@ func (inv *Inventory) Hold(input HoldInput) (int, error) {
 	return slotNo, nil
 }
 
-// StartPayment は仮確保を決済中にし、期限切れ回収の対象から外す。
 func (inv *Inventory) StartPayment(bookingId uuid.UUID) error {
 	i, ok := inv.indexOfHold(bookingId)
 	if !ok {
@@ -130,7 +138,6 @@ func (inv *Inventory) StartPayment(bookingId uuid.UUID) error {
 	return nil
 }
 
-// Confirm は決済中の確保を確定させる。
 func (inv *Inventory) Confirm(bookingId uuid.UUID) error {
 	i, ok := inv.indexOfHold(bookingId)
 	if !ok {
@@ -144,7 +151,6 @@ func (inv *Inventory) Confirm(bookingId uuid.UUID) error {
 	return nil
 }
 
-// Release は確保を解放する。枠番号は再利用される。
 func (inv *Inventory) Release(bookingId uuid.UUID) error {
 	i, ok := inv.indexOfHold(bookingId)
 	if !ok {
@@ -154,8 +160,6 @@ func (inv *Inventory) Release(bookingId uuid.UUID) error {
 	return nil
 }
 
-// CollectExpired は期限切れの仮確保を回収し、回収した件数を返す。
-// 決済中・確定済みは対象外とする。
 func (inv *Inventory) CollectExpired(now time.Time) int {
 	remained := make([]Hold, 0, len(inv.holds))
 	collected := 0
@@ -170,9 +174,7 @@ func (inv *Inventory) CollectExpired(now time.Time) int {
 	return collected
 }
 
-// ---- 参照 ----
-
-func (inv *Inventory) ID() *InventoryId {
+func (inv *Inventory) Id() *InventoryId {
 	return inv.id
 }
 
@@ -192,9 +194,12 @@ func (inv *Inventory) HoldCount() int {
 	return len(inv.holds)
 }
 
-// Available は確保できる残りの枠数を返す。
 func (inv *Inventory) Available() int {
 	return inv.quantityAvailable - len(inv.holds)
+}
+
+func (inv *Inventory) Holds() []Hold {
+	return append([]Hold{}, inv.holds...)
 }
 
 func (inv *Inventory) FindHold(bookingId uuid.UUID) (*Hold, bool) {
@@ -205,8 +210,6 @@ func (inv *Inventory) FindHold(bookingId uuid.UUID) (*Hold, bool) {
 	return &inv.holds[i], true
 }
 
-// ---- 内部 ----
-
 func (inv *Inventory) indexOfHold(bookingId uuid.UUID) (int, bool) {
 	for i := range inv.holds {
 		if inv.holds[i].bookingId == bookingId {
@@ -216,7 +219,6 @@ func (inv *Inventory) indexOfHold(bookingId uuid.UUID) (int, bool) {
 	return 0, false
 }
 
-// vacantSlotNo は使われていない最小の枠番号を返す。
 func (inv *Inventory) vacantSlotNo() (int, bool) {
 	used := make(map[int]struct{}, len(inv.holds))
 	for _, h := range inv.holds {

@@ -17,7 +17,6 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// SetupDB はテスト用の PostgreSQL を起動し、マイグレーションを適用したプールを返す
 func SetupDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	ctx := context.Background()
@@ -42,7 +41,6 @@ func SetupDB(t *testing.T) *pgxpool.Pool {
 	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	// マイグレーション適用
 	m, err := migrate.New("file://"+migrationsPath(t), dsn)
 	require.NoError(t, err)
 	require.NoError(t, m.Up())
@@ -59,7 +57,6 @@ func migrationsPath(t *testing.T) string {
 	dir, err := os.Getwd()
 	require.NoError(t, err)
 
-	// go.mod があるディレクトリまで遡る
 	for {
 		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			return filepath.Join(dir, "db", "migrations")

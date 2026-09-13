@@ -22,6 +22,16 @@ type Hold struct {
 	expiredAt *time.Time
 }
 
+func ReconstructHold(id, bookingId uuid.UUID, slotNo int, status HoldStatus, expiredAt *time.Time) Hold {
+	return Hold{
+		id:        id,
+		bookingId: bookingId,
+		slotNo:    slotNo,
+		status:    status,
+		expiredAt: expiredAt,
+	}
+}
+
 func (h *Hold) Id() uuid.UUID {
 	return h.id
 }

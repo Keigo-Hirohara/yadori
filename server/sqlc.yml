@@ -50,7 +50,7 @@ sql:
     gen:
       go:
         package: "inventorydb"
-        out: "internal/inventory/infra/postogres/db"
+        out: "internal/inventory/infra/postgres/db"
         sql_package: "pgx/v5"
         emit_pointers_for_null_types: true
         overrides:
@@ -66,7 +66,23 @@ sql:
     gen:
       go:
         package: "bookingdb"
-        out: "internal/booking/infra/postogres/db"
+        out: "internal/booking/infra/postgres/db"
+        sql_package: "pgx/v5"
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "uuid"
+            go_type: "github.com/google/uuid.UUID"
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+          - db_type: "date"
+            go_type: "time.Time"  # 空室検索（読み取りモデル）
+  - engine: "postgresql"
+    schema: "db/migrations"
+    queries: "db/queries/search"
+    gen:
+      go:
+        package: "searchdb"
+        out: "internal/search/db"
         sql_package: "pgx/v5"
         emit_pointers_for_null_types: true
         overrides:

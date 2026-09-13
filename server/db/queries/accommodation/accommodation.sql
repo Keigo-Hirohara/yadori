@@ -16,3 +16,6 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- name: GetAccommodation :one
 SELECT * FROM accommodations WHERE id = $1;
+-- name: ListAccommodations :many
+SELECT * FROM accommodations
+ORDER BY created_at DESC;

@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: yadori
+      POSTGRES_PASSWORD: yadori
+      POSTGRES_DB: yadori
+    ports:
+      - "5432:5432"
+    volumes:
+      - yadori-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yadori"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  yadori-db:
