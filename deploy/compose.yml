@@ -21,12 +21,13 @@ services:
     volumes:
       - ../auth/realms:/in:ro
       - realms:/out
-    command: >
-      sh -c 'for f in /in/*.json; do
-        sed -e "s#http://localhost:5173#http://${PUBLIC_HOST}:5173#g"
-            -e "s#http://localhost:5174#http://${PUBLIC_HOST}:5174#g"
-            "$$f" > "/out/$$(basename "$$f")";
-      done'
+    command:
+      - sh
+      - -c
+      - |
+        for f in /in/*.json; do
+          sed -e "s#http://localhost:5173#http://${PUBLIC_HOST}:5173#g" -e "s#http://localhost:5174#http://${PUBLIC_HOST}:5174#g" "$$f" > "/out/$$(basename "$$f")"
+        done
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
