@@ -7,6 +7,8 @@ import (
 
 	"github.com/Keigo-Hirohara/yadori/internal/accommodation"
 	accommodationdb "github.com/Keigo-Hirohara/yadori/internal/accommodation/db"
+	"github.com/Keigo-Hirohara/yadori/internal/booker"
+	bookerdb "github.com/Keigo-Hirohara/yadori/internal/booker/db"
 	bookingapp "github.com/Keigo-Hirohara/yadori/internal/booking/app"
 	inventoryapp "github.com/Keigo-Hirohara/yadori/internal/inventory/app"
 	inventorydomain "github.com/Keigo-Hirohara/yadori/internal/inventory/domain"
@@ -76,4 +78,22 @@ func (f *RoomTypeFinder) Capacity(ctx context.Context, roomTypeId uuid.UUID) (in
 		return 0, err
 	}
 	return roomType.Capacity(), nil
+}
+
+type BookerResolver struct {
+	db bookerdb.DBTX
+}
+
+func NewBookerResolver(db bookerdb.DBTX) *BookerResolver {
+	return &BookerResolver{db: db}
+}
+
+var _ bookingapp.BookerResolver = (*BookerResolver)(nil)
+
+func (r *BookerResolver) ResolveBookerId(ctx context.Context, subject string) (uuid.UUID, error) {
+	b, err := booker.FindBySubject(ctx, r.db, subject)
+	if err != nil {
+		return uuid.Nil, bookingapp.ErrBookerNotRegistered
+	}
+	return b.ID(), nil
 }

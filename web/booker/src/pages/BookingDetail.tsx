@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { cancel, getBooking, statusLabel, type Booking, type BookingStatus } from "../api/client";
+import RequireLogin from "../components/RequireLogin";
 import { Button, ErrorBanner, Modal, yen } from "../components/ui";
 
 const fmt = (s: string) => {
@@ -16,6 +17,14 @@ const statusNote: Record<BookingStatus, string> = {
 };
 
 export default function BookingDetail() {
+  return (
+    <RequireLogin>
+      <Detail />
+    </RequireLogin>
+  );
+}
+
+function Detail() {
   const { bookingId = "" } = useParams();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);

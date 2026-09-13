@@ -1,9 +1,9 @@
 -- name: UpsertBooker :exec
 INSERT INTO bookers (
     id, first_name, last_name, postal_code, phone_number,
-    prefecture, city, street_address, building
+    prefecture, city, street_address, building, subject
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 )
 ON CONFLICT (id) DO UPDATE SET
     first_name     = EXCLUDED.first_name,
@@ -18,3 +18,5 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- name: GetBooker :one
 SELECT * FROM bookers WHERE id = $1;
+-- name: GetBookerBySubject :one
+SELECT * FROM bookers WHERE subject = $1;

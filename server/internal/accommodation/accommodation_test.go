@@ -12,13 +12,14 @@ import (
 func TestNewAccommodation(t *testing.T) {
 	t.Run("必須項目が揃っていれば、宿を登録できる", func(t *testing.T) {
 		_, err := NewAccommodation(AccommodationCreateInput{
-			Name:          "舞浜ホテル",
-			PhoneNumber:   "04712344321",
-			PostalCode:    "1000000",
-			Prefecture:    "千葉県",
-			City:          "浦安市",
-			StreetAddress: "舞浜1-1",
-			Building:      "舞浜ホテル",
+			OperatorSubject: "operator-1",
+			Name:            "舞浜ホテル",
+			PhoneNumber:     "04712344321",
+			PostalCode:      "1000000",
+			Prefecture:      "千葉県",
+			City:            "浦安市",
+			StreetAddress:   "舞浜1-1",
+			Building:        "舞浜ホテル",
 		})
 		if err != nil {
 			t.Errorf("Error occured: %s", err)
@@ -38,13 +39,14 @@ func TestNewAccommodation(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					got, err := NewAccommodation(AccommodationCreateInput{
-						Name:          tt.input,
-						PhoneNumber:   "04712344321",
-						PostalCode:    "1000000",
-						Prefecture:    "千葉県",
-						City:          "浦安市",
-						StreetAddress: "舞浜1-1",
-						Building:      "舞浜ホテル",
+						OperatorSubject: "operator-1",
+						Name:            tt.input,
+						PhoneNumber:     "04712344321",
+						PostalCode:      "1000000",
+						Prefecture:      "千葉県",
+						City:            "浦安市",
+						StreetAddress:   "舞浜1-1",
+						Building:        "舞浜ホテル",
 					})
 					if err != nil {
 						t.Fatalf("Error occured: %s", err)
@@ -68,13 +70,14 @@ func TestNewAccommodation(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					_, err := NewAccommodation(AccommodationCreateInput{
-						Name:          tt.input,
-						PhoneNumber:   "04712344321",
-						PostalCode:    "1000000",
-						Prefecture:    "千葉県",
-						City:          "浦安市",
-						StreetAddress: "舞浜1-1",
-						Building:      "舞浜ホテル",
+						OperatorSubject: "operator-1",
+						Name:            tt.input,
+						PhoneNumber:     "04712344321",
+						PostalCode:      "1000000",
+						Prefecture:      "千葉県",
+						City:            "浦安市",
+						StreetAddress:   "舞浜1-1",
+						Building:        "舞浜ホテル",
 					})
 					if err == nil {
 						t.Fatal("エラーが返りませんでした")
@@ -103,13 +106,14 @@ func TestNewAccommodation(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					got, err := NewAccommodation(AccommodationCreateInput{
-						Name:          "舞浜ホテル",
-						PhoneNumber:   tt.input,
-						PostalCode:    "1000000",
-						Prefecture:    "千葉県",
-						City:          "浦安市",
-						StreetAddress: "舞浜1-1",
-						Building:      "舞浜ホテル",
+						OperatorSubject: "operator-1",
+						Name:            "舞浜ホテル",
+						PhoneNumber:     tt.input,
+						PostalCode:      "1000000",
+						Prefecture:      "千葉県",
+						City:            "浦安市",
+						StreetAddress:   "舞浜1-1",
+						Building:        "舞浜ホテル",
 					})
 					if err != nil {
 						t.Fatalf("Error occured: %s", err)
@@ -136,13 +140,14 @@ func TestNewAccommodation(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					_, err := NewAccommodation(AccommodationCreateInput{
-						Name:          "舞浜ホテル",
-						PhoneNumber:   tt.input,
-						PostalCode:    "1000000",
-						Prefecture:    "千葉県",
-						City:          "浦安市",
-						StreetAddress: "舞浜1-1",
-						Building:      "舞浜ホテル",
+						OperatorSubject: "operator-1",
+						Name:            "舞浜ホテル",
+						PhoneNumber:     tt.input,
+						PostalCode:      "1000000",
+						Prefecture:      "千葉県",
+						City:            "浦安市",
+						StreetAddress:   "舞浜1-1",
+						Building:        "舞浜ホテル",
 					})
 					if err == nil {
 						t.Fatal("エラーが返りませんでした")
@@ -169,13 +174,14 @@ func TestNewAccommodation(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					got, err := NewAccommodation(AccommodationCreateInput{
-						Name:          "舞浜ホテル",
-						PhoneNumber:   "04712344321",
-						PostalCode:    tt.input,
-						Prefecture:    "千葉県",
-						City:          "浦安市",
-						StreetAddress: "舞浜1-1",
-						Building:      "舞浜ホテル",
+						OperatorSubject: "operator-1",
+						Name:            "舞浜ホテル",
+						PhoneNumber:     "04712344321",
+						PostalCode:      tt.input,
+						Prefecture:      "千葉県",
+						City:            "浦安市",
+						StreetAddress:   "舞浜1-1",
+						Building:        "舞浜ホテル",
 					})
 					if err != nil {
 						t.Fatalf("Error occured: %s", err)
@@ -201,13 +207,14 @@ func TestNewAccommodation(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					_, err := NewAccommodation(AccommodationCreateInput{
-						Name:          "舞浜ホテル",
-						PhoneNumber:   "04712344321",
-						PostalCode:    tt.input,
-						Prefecture:    "千葉県",
-						City:          "浦安市",
-						StreetAddress: "舞浜1-1",
-						Building:      "舞浜ホテル",
+						OperatorSubject: "operator-1",
+						Name:            "舞浜ホテル",
+						PhoneNumber:     "04712344321",
+						PostalCode:      tt.input,
+						Prefecture:      "千葉県",
+						City:            "浦安市",
+						StreetAddress:   "舞浜1-1",
+						Building:        "舞浜ホテル",
 					})
 					if err == nil {
 						t.Fatal("エラーが返りませんでした")
@@ -223,13 +230,14 @@ func TestNewAccommodation(t *testing.T) {
 	t.Run("都道府県", func(t *testing.T) {
 		t.Run("入力されていれば、登録できる", func(t *testing.T) {
 			got, err := NewAccommodation(AccommodationCreateInput{
-				Name:          "舞浜ホテル",
-				PhoneNumber:   "04712344321",
-				PostalCode:    "1000000",
-				Prefecture:    "東京都",
-				City:          "浦安市",
-				StreetAddress: "舞浜1-1",
-				Building:      "舞浜ホテル",
+				OperatorSubject: "operator-1",
+				Name:            "舞浜ホテル",
+				PhoneNumber:     "04712344321",
+				PostalCode:      "1000000",
+				Prefecture:      "東京都",
+				City:            "浦安市",
+				StreetAddress:   "舞浜1-1",
+				Building:        "舞浜ホテル",
 			})
 			if err != nil {
 				t.Fatalf("Error occured: %s", err)
@@ -241,13 +249,14 @@ func TestNewAccommodation(t *testing.T) {
 
 		t.Run("空だと、登録できない", func(t *testing.T) {
 			_, err := NewAccommodation(AccommodationCreateInput{
-				Name:          "舞浜ホテル",
-				PhoneNumber:   "04712344321",
-				PostalCode:    "1000000",
-				Prefecture:    "",
-				City:          "浦安市",
-				StreetAddress: "舞浜1-1",
-				Building:      "舞浜ホテル",
+				OperatorSubject: "operator-1",
+				Name:            "舞浜ホテル",
+				PhoneNumber:     "04712344321",
+				PostalCode:      "1000000",
+				Prefecture:      "",
+				City:            "浦安市",
+				StreetAddress:   "舞浜1-1",
+				Building:        "舞浜ホテル",
 			})
 			if err == nil {
 				t.Fatal("エラーが返りませんでした")
@@ -261,13 +270,14 @@ func TestNewAccommodation(t *testing.T) {
 	t.Run("市区町村", func(t *testing.T) {
 		t.Run("入力されていれば、登録できる", func(t *testing.T) {
 			got, err := NewAccommodation(AccommodationCreateInput{
-				Name:          "舞浜ホテル",
-				PhoneNumber:   "04712344321",
-				PostalCode:    "1000000",
-				Prefecture:    "千葉県",
-				City:          "千代田区",
-				StreetAddress: "舞浜1-1",
-				Building:      "舞浜ホテル",
+				OperatorSubject: "operator-1",
+				Name:            "舞浜ホテル",
+				PhoneNumber:     "04712344321",
+				PostalCode:      "1000000",
+				Prefecture:      "千葉県",
+				City:            "千代田区",
+				StreetAddress:   "舞浜1-1",
+				Building:        "舞浜ホテル",
 			})
 			if err != nil {
 				t.Fatalf("Error occured: %s", err)
@@ -279,13 +289,14 @@ func TestNewAccommodation(t *testing.T) {
 
 		t.Run("空だと、登録できない", func(t *testing.T) {
 			_, err := NewAccommodation(AccommodationCreateInput{
-				Name:          "舞浜ホテル",
-				PhoneNumber:   "04712344321",
-				PostalCode:    "1000000",
-				Prefecture:    "千葉県",
-				City:          "",
-				StreetAddress: "舞浜1-1",
-				Building:      "舞浜ホテル",
+				OperatorSubject: "operator-1",
+				Name:            "舞浜ホテル",
+				PhoneNumber:     "04712344321",
+				PostalCode:      "1000000",
+				Prefecture:      "千葉県",
+				City:            "",
+				StreetAddress:   "舞浜1-1",
+				Building:        "舞浜ホテル",
 			})
 			if err == nil {
 				t.Fatal("エラーが返りませんでした")
@@ -307,13 +318,14 @@ func TestSaveAccomodation(t *testing.T) {
 
 	t.Run("宿を登録し、保存ができる", func(t *testing.T) {
 		accommodation, err := NewAccommodation(AccommodationCreateInput{
-			Name:          "舞浜ホテル",
-			PhoneNumber:   "04700000000",
-			PostalCode:    "1000000",
-			Prefecture:    "千葉県",
-			City:          "浦安市",
-			StreetAddress: "舞浜1-1",
-			Building:      "舞浜ホテル",
+			OperatorSubject: "operator-1",
+			Name:            "舞浜ホテル",
+			PhoneNumber:     "04700000000",
+			PostalCode:      "1000000",
+			Prefecture:      "千葉県",
+			City:            "浦安市",
+			StreetAddress:   "舞浜1-1",
+			Building:        "舞浜ホテル",
 		})
 
 		require.NoError(t, err)
@@ -324,5 +336,21 @@ func TestSaveAccomodation(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, accommodation.Name(), got.Name())
+	})
+}
+
+func TestNewAccommodation_運営者(t *testing.T) {
+	t.Run("運営者が特定できなければ登録できない", func(t *testing.T) {
+		_, err := NewAccommodation(AccommodationCreateInput{
+			Name:          "舞浜ホテル",
+			PhoneNumber:   "04712344321",
+			PostalCode:    "1000000",
+			Prefecture:    "千葉県",
+			City:          "浦安市",
+			StreetAddress: "1-1",
+		})
+		if err != ErrOperatorRequired {
+			t.Fatalf("ErrOperatorRequired を期待: got %v", err)
+		}
 	})
 }

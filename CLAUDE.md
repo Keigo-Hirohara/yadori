@@ -86,6 +86,11 @@ gRPC はブラウザから直接叩けずフロント側の実装が複雑にな
 この2つの判断は別の理由に基づくものであり、混同してはいけません。
 面接等で説明する際も、事業視点と学習視点を切り分けて述べること。
 
+### 認証を外部サービスに任せた実体
+
+Keycloak を IdP とし、バックエンドは OIDC 標準の検証だけを書いています（11.8）。
+腐敗防止層は `internal/shared/auth` です。決済も同じ形で `shared/payment` に置く予定です。
+
 ---
 
 ## 3. 区切られた文脈
@@ -751,12 +756,14 @@ CREATE TABLE guests (
 **`bookings.cancellation_fee`**（000008）は、二重キャンセルを冪等にするために持ちます。
 キャンセル料は算出時点の日程と料金で決まり、あとから再計算できないためです。
 
+**`bookers.subject` と `accommodations.operator_subject`**（000010）は IdP のユーザーとの紐付けです（11.8）。
+
 **`holds.booking_id` が `bookings` を参照している**ため、確保より先に予約行が必要です。
 これが7章の「予約を先に作る」順序を決めています。
 
 ### マイグレーション
 
-`server/db/migrations/` に golang-migrate 形式で置きます。000001〜000007 が初期スキーマ、000008 と 000009 が上記の追加。
+`server/db/migrations/` に golang-migrate 形式で置きます。000001〜000007 が初期スキーマ、000008〜000010 が上記の追加。
 `make migrate`（`server/cmd/migrate`）で適用します。CLI を別途入れなくて済むよう、ライブラリを直接使う小さなコマンドです。
 
 **インデックスは意図的にまだ貼っていません。** 負荷試験の段階で、
@@ -892,6 +899,9 @@ pgxpool を作り、Transactor を作り、Service を作り、ハンドラに�
 | `ErrInvalidStayPeriod` | `INVALID_STAY_PERIOD` | 400 |
 | `ErrBusy`（ロック待ち超過） | `RESOURCE_BUSY` | 503 + `Retry-After` |
 | 構文エラー | `INVALID_REQUEST_BODY` | 400 |
+| トークンなし・無効 | `UNAUTHENTICATED` | 401 |
+| ユーザーの種類が違う | `FORBIDDEN` | 403 |
+| 会員未登録で予約 | `BOOKER_NOT_REGISTERED` | 404 |
 | それ以外 | `INTERNAL_ERROR` | 500 |
 
 **満室を 409 にする理由。** 400 は「あなたのリクエストが間違っている」、
@@ -1025,16 +1035,75 @@ POST /api/v1/bookings/{bookingId}/payment
   … 予約のユースケース経由でしか呼ばれない
 - `CollectExpired` … ワーカー（`cmd/worker`）の担当
 
-### 11.8 既知の宿題
+### 11.8 認証と認可
 
-- **`BookInput.BookerId` をリクエストボディで受けている。**
-  このままでは他人になりすまして予約できる。認証を入れる際に、
-  必ず context 由来（トークンから取り出した値）に変えること。
-  フロントエンド（`web/booker/src/booker.ts`）は会員IDを `localStorage` に持たせて凌いでおり、
-  認証導入時に両方まとめて消す
+**認証は自作しません**（2章）。パスワード・ログイン画面・リセット・MFA・セッションはすべて IdP（Keycloak）に任せ、
+自作するのは「トークンを検証して利用者を取り出すミドルウェア」だけです。
+
+#### 予約者と運営者は「ユーザーの種類」であって、ロールではない
+
+業務領域として全く別の存在なので、**Keycloak の realm を2つに分けます。**
+
+| 種類 | realm | クライアント | サイト |
+|---|---|---|---|
+| 予約者（Booker） | `yadori-booker` | `yadori-booker-web` | `web/booker` |
+| 運営者（Operator） | `yadori-operator` | `yadori-admin-web` | `web/admin` |
+
+realm が違えばトークンの発行者（`iss`）が違います。運営者のトークンを予約 API に持ち込んでも、
+検証の段階で通りません。ロールで分けると設定次第で1人に両方を付けられてしまいますが、
+realm で分ければ**構造的に不可能**です。「宿の運営者が客として予約する」ことは想定しません。
+
+Go 側もこの区別を型で表します。`auth.BookerFrom(ctx)` と `auth.OperatorFrom(ctx)` は別の関数で、
+予約者向けミドルウェアを通った context から運営者IDは取り出せません。
+
+#### 腐敗防止層の実体
+
+バックエンドは **OIDC 標準の処理しか書きません**（discovery で JWKS を取り、署名・`iss`・`aud`・`exp` を検証し、`sub` を取り出す）。
+Keycloak 固有のクレームには一切触れないので、IdP を乗り換えても `shared/auth` は変わりません。
+`aud` は Keycloak 側のマッパーで `yadori-api` を載せています（`auth/realms/*.json`）。
+
+#### 認可は3段階
+
+| 段階 | 手段 | 場所 |
+|---|---|---|
+| 種類 | `RequireBooker` / `RequireOperator` ミドルウェア。`/admin` 配下は運営者だけ | `cmd/api/routes.go` |
+| 本人性 | `bookerId` はボディでなく `sub` から引く（`BookerResolver`） | `booking/infra/http` |
+| 所有権 | 他人の予約は **404**（存在を隠す）。宿と部屋タイプは `operator_subject` で確認 | `accommodation/authz.go`、`booking/infra/http` |
+
+所有権の確認をミドルウェア（`RequireAccommodationOwner` / `RequireRoomTypeOwner`）にしているのは、
+管理エンドポイントを足したときに確認を付け忘れる事故を、ルート定義の形で防ぐためです。
+
+#### IdP のユーザーとの紐付け
+
+| テーブル | 列 | 意味 |
+|---|---|---|
+| `bookers` | `subject`（一意） | この会員は IdP のこのユーザー |
+| `accommodations` | `operator_subject` | この宿を管理できる運営者（1対1） |
+
+`bookers.id` はそのまま残し、`sub` を主キーにしません。IdP を乗り換えたときに外部キーが巻き込まれるのを避けるためです。
+会員登録（`POST /bookers/me`）は**初回の予約時**に行います。IdP からは住所などの必須項目が取れないためです。
+
+#### エンドポイントの変更
+
+| 変更前 | 変更後 |
+|---|---|
+| `POST /bookers`、`GET /bookers/{id}` | `GET /bookers/me`、`POST /bookers/me` |
+| `GET /bookers/{id}/bookings` | `GET /bookers/me/bookings` |
+| `POST /bookings` の `bookerId` | ボディから削除。トークン由来 |
+
+公開のまま残すのは `GET /room-types/search`、`GET /room-types/{id}`、`GET /healthz` だけです。
+
+#### ローカル開発
+
+`compose.yml` の Keycloak が `auth/realms/` の定義を起動時に取り込みます。テストユーザーと
+password grant（`directAccessGrantsEnabled`）は開発用で、本番の realm では無効にします。
+`make up` で PostgreSQL と Keycloak が立ちます。
+
+### 11.9 既知の宿題
+
 - **補償で取り消された0円の予約が履歴に残る。** 満室で失敗した予約が
   「仮予約を作る → 確保に失敗 → キャンセル」の経路を通るため。設計どおりの動作だが利用者には見えないほうがよい
-- **`GET /admin/accommodations` は全件を返す。** 認証を入れて運営者に紐づく宿だけに絞る
+- **運営者のセルフ登録画面がない。** Keycloak の管理コンソールから追加する運用
 
 ---
 
@@ -1060,11 +1129,11 @@ POST /api/v1/bookings/{bookingId}/payment
 | フロントエンド | `web/admin`（管理画面）と `web/booker`（予約者向け）。Claude Design のデザインを反映 |
 | **期限切れ回収ワーカー** | `cmd/worker`。予約側と在庫側の2段階。`make dev` に含まれる |
 | **CI** | GitHub Actions。sqlc の生成物の一致、gofmt、vet、DBテスト込みの全テスト、フロント2つのビルド |
+| **認証・認可** | Keycloak（realm 2つ）+ `shared/auth`。種類・本人性・所有権の3段階。フロントは OIDC PKCE |
 | 起動 | `make dev` / `make seed` / `compose.yml` |
 
 ### 未着手
 
-- 認証（外部IdP + 腐敗防止層）
 - ホスティング・自動デプロイ
 - プロセスマネージャー（状態をDBに持ち、中断地点から再開する）
 - 決済の腐敗防止層・Webhook・照合処理
@@ -1078,7 +1147,7 @@ POST /api/v1/bookings/{bookingId}/payment
 - `RoomType` の論理削除（型・メソッド）が未実装。テーブルの列と一覧の絞り込みだけがある
 - `Booking` の状態が4つのみ（`staying` / `completed` / `no_show` は未定義）。チェックイン機能とあわせて追加する
 - `guests` の年齢を持たない（用途がないため削除済み）
-- 11.8 の宿題（`bookerId` の受け取り方、0円のキャンセル済み予約、宿一覧の絞り込み）
+- 11.9 の宿題（0円のキャンセル済み予約、運営者のセルフ登録）
 
 ---
 
@@ -1092,7 +1161,7 @@ POST /api/v1/bookings/{bookingId}/payment
 ```
 1. 期限切れ回収ワーカー         ← 完了
 2. CI + デッドロック検証テスト  ← 完了
-3. 認証（外部IdP + 腐敗防止層）。bookerId をトークン由来に、/admin を運営者ロールで閉じる
+3. 認証                         ← 完了
 4. ホスティング + 自動デプロイ
 5. プロセスマネージャー + モック決済の本実装（腐敗防止層・Webhook・照合）
 6. CQRS への置き換え（投影、再構築処理）
@@ -1105,11 +1174,11 @@ POST /api/v1/bookings/{bookingId}/payment
 支払わずに離脱した予約の在庫は、いま誰も解放しません。
 設計が前提にしているものが無い状態なので、他の何よりも先に埋めます。
 
-### 3・4 を 1・2 の後にする理由
+### 1〜3 を先にした理由
 
 公開する前提なら認証は必須ですが、期限切れ回収が無いまま公開すると在庫が固着し、
 CIが無いまま公開するとテストされていない変更が本番に載ります。
-認証と期限切れ回収に依存関係はないので、小さい方を先に片付けます。
+小さいものから順に片付けました。
 
 ### 7 の進め方
 
@@ -1129,7 +1198,8 @@ pprof でボトルネックを特定 → 改善 → 再計測。
 ```
 yadori/
 ├── Makefile              # make dev / migrate / seed / test / sqlc
-├── compose.yml           # 開発用 PostgreSQL
+├── compose.yml           # 開発用 PostgreSQL と Keycloak
+├── auth/realms/          # Keycloak の realm 定義（起動時に自動インポート）
 ├── server/
 │   ├── cmd/
 │   │   ├── api/          # HTTPサーバー。routes.go に全ルート、main.go が合成の根
@@ -1149,6 +1219,7 @@ yadori/
 │   │   ├── booker/         # 補完・アクティブレコード
 │   │   ├── search/         # 読み取りモデル。層を切らない
 │   │   ├── shared/http/    # ミドルウェア、共通レスポンス（package sharedhttp）
+│   │   ├── shared/auth/    # OIDC 検証、種類別ミドルウェア（腐敗防止層）
 │   │   └── testutil/       # testcontainers で PostgreSQL を立てる
 │   └── db/
 │       ├── migrations/

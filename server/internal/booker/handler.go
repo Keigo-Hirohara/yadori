@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	bookerdb "github.com/Keigo-Hirohara/yadori/internal/booker/db"
+	"github.com/Keigo-Hirohara/yadori/internal/shared/auth"
 	sharedhttp "github.com/Keigo-Hirohara/yadori/internal/shared/http"
 )
 
@@ -22,6 +23,8 @@ var errorTable = []struct {
 	status int
 }{
 	{ErrBookerNotFound, "BOOKER_NOT_FOUND", http.StatusNotFound},
+	{ErrAlreadyRegistered, "BOOKER_ALREADY_REGISTERED", http.StatusConflict},
+	{ErrSubjectRequired, auth.CodeUnauthenticated, http.StatusUnauthorized},
 	{ErrInvalidFirstName, "INVALID_FIRST_NAME", http.StatusBadRequest},
 	{ErrInvalidLastName, "INVALID_LAST_NAME", http.StatusBadRequest},
 	{ErrInvalidPhoneNumber, "INVALID_PHONE_NUMBER", http.StatusBadRequest},
@@ -68,12 +71,14 @@ func toResponse(b *Booker) bookerResponse {
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+	subject, _ := auth.BookerFrom(r.Context())
 	var req bookerRequest
 	if !sharedhttp.DecodeJSON(w, r, &req) {
 		return
 	}
 
 	b, err := NewBooker(BookerCreateInput{
+		Subject:       subject,
 		FirstName:     req.FirstName,
 		LastName:      req.LastName,
 		PhoneNumber:   req.PhoneNumber,
@@ -94,14 +99,10 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	sharedhttp.WriteJSON(w, http.StatusCreated, toResponse(&b))
 }
 
-func (h *Handler) Find(w http.ResponseWriter, r *http.Request) {
-	id, err := sharedhttp.PathUUID(r, "bookerId")
-	if err != nil {
-		sharedhttp.WriteBadRequest(w)
-		return
-	}
+func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
+	subject, _ := auth.BookerFrom(r.Context())
 
-	b, err := FindById(r.Context(), h.db, id)
+	b, err := FindBySubject(r.Context(), h.db, subject)
 	if err != nil {
 		writeError(w, err)
 		return

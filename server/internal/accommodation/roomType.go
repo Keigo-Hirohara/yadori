@@ -110,6 +110,16 @@ func ListRoomTypesByAccommodationId(ctx context.Context, db accommodationdb.DBTX
 	return roomTypes, nil
 }
 
+func OwnsRoomType(ctx context.Context, db accommodationdb.DBTX, subject string, roomTypeId uuid.UUID) (bool, error) {
+	q := accommodationdb.New(db)
+
+	owner, err := q.GetRoomTypeOperator(ctx, roomTypeId)
+	if err != nil {
+		return false, ErrRoomTypeNotFound
+	}
+	return owner != nil && *owner == subject, nil
+}
+
 func (r *RoomType) ID() uuid.UUID {
 	return r.id
 }

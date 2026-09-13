@@ -21,8 +21,11 @@ npm install
 npm run dev
 ```
 
-APIの接続先は `VITE_API_BASE_URL` で変えられる（既定は `http://localhost:8080/api/v1`）。
-サーバー側は `ALLOWED_ORIGINS` でこの2つのポートを許可している。
+APIの接続先は `VITE_API_BASE_URL`、認証の接続先は `VITE_OIDC_AUTHORITY` / `VITE_OIDC_CLIENT_ID` で変えられる
+（`.env.example` 参照）。サーバー側は `ALLOWED_ORIGINS` でこの2つのポートを許可している。
+
+ログインは OIDC（Authorization Code + PKCE）で、`src/auth.ts` が `oidc-client-ts` を包んでいる。
+API 呼び出しには `src/api/client.ts` が自動でアクセストークンを付ける。
 
 ## 構成
 
@@ -30,7 +33,8 @@ APIの接続先は `VITE_API_BASE_URL` で変えられる（既定は `http://lo
 
 ```
 src/
-├── api/client.ts    APIとのやり取り。デザインを変えても変わらない
+├── auth.ts          ログイン・トークンの取得（oidc-client-ts）
+├── api/client.ts    APIとのやり取り。トークンを自動で付ける。デザインを変えても変わらない
 ├── components/ui.tsx 見た目の部品
 └── pages/           画面
 ```

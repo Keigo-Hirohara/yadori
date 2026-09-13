@@ -101,16 +101,17 @@ func (ns NullHoldStatus) Value() (driver.Value, error) {
 }
 
 type Accommodation struct {
-	ID            uuid.UUID
-	Name          string
-	PhoneNumber   string
-	PostalCode    string
-	Prefecture    string
-	City          string
-	StreetAddress string
-	Building      string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID              uuid.UUID
+	Name            string
+	PhoneNumber     string
+	PostalCode      string
+	Prefecture      string
+	City            string
+	StreetAddress   string
+	Building        string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	OperatorSubject *string
 }
 
 type Booker struct {
@@ -125,6 +126,7 @@ type Booker struct {
 	Building      string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+	Subject       *string
 }
 
 type Booking struct {

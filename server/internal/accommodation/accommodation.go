@@ -24,30 +24,36 @@ var (
 	ErrCityRequired          = errors.New("市区町村を入力してください")
 	ErrFailedToSave          = errors.New("宿の登録に失敗しました")
 	ErrAccommodationNotFound = errors.New("宿が見つかりませんでした")
+	ErrOperatorRequired      = errors.New("ログイン中の運営者が特定できません")
 )
 
 type Accommodation struct {
-	id            uuid.UUID
-	name          string
-	phoneNumber   string
-	postalCode    string
-	prefecture    string
-	city          string
-	streetAddress string
-	building      string
+	id              uuid.UUID
+	operatorSubject string
+	name            string
+	phoneNumber     string
+	postalCode      string
+	prefecture      string
+	city            string
+	streetAddress   string
+	building        string
 }
 
 type AccommodationCreateInput struct {
-	Name          string
-	PhoneNumber   string
-	PostalCode    string
-	Prefecture    string
-	City          string
-	StreetAddress string
-	Building      string
+	OperatorSubject string
+	Name            string
+	PhoneNumber     string
+	PostalCode      string
+	Prefecture      string
+	City            string
+	StreetAddress   string
+	Building        string
 }
 
 func NewAccommodation(input AccommodationCreateInput) (Accommodation, error) {
+	if input.OperatorSubject == "" {
+		return Accommodation{}, ErrOperatorRequired
+	}
 	if err := validName(input.Name); err != nil {
 		return Accommodation{}, err
 	}
@@ -71,14 +77,15 @@ func NewAccommodation(input AccommodationCreateInput) (Accommodation, error) {
 	}
 
 	return Accommodation{
-		id:            uuid.New(),
-		name:          input.Name,
-		phoneNumber:   phoneNumber,
-		postalCode:    input.PostalCode,
-		prefecture:    input.Prefecture,
-		city:          input.City,
-		streetAddress: input.StreetAddress,
-		building:      input.Building,
+		id:              uuid.New(),
+		operatorSubject: input.OperatorSubject,
+		name:            input.Name,
+		phoneNumber:     phoneNumber,
+		postalCode:      input.PostalCode,
+		prefecture:      input.Prefecture,
+		city:            input.City,
+		streetAddress:   input.StreetAddress,
+		building:        input.Building,
 	}, nil
 }
 
@@ -86,14 +93,15 @@ func (a *Accommodation) Save(ctx context.Context, db accommodationdb.DBTX) error
 	q := accommodationdb.New(db)
 
 	err := q.UpsertAccommodation(ctx, accommodationdb.UpsertAccommodationParams{
-		ID:            a.id,
-		Name:          a.name,
-		PhoneNumber:   a.phoneNumber,
-		PostalCode:    a.postalCode,
-		Prefecture:    a.prefecture,
-		City:          a.city,
-		StreetAddress: a.streetAddress,
-		Building:      a.building,
+		ID:              a.id,
+		Name:            a.name,
+		PhoneNumber:     a.phoneNumber,
+		PostalCode:      a.postalCode,
+		Prefecture:      a.prefecture,
+		City:            a.city,
+		StreetAddress:   a.streetAddress,
+		Building:        a.building,
+		OperatorSubject: &a.operatorSubject,
 	})
 
 	if err != nil {
@@ -135,10 +143,10 @@ func (a *Accommodation) Prefecture() string {
 	return a.prefecture
 }
 
-func ListAccommodations(ctx context.Context, db accommodationdb.DBTX) ([]Accommodation, error) {
+func ListAccommodationsByOperator(ctx context.Context, db accommodationdb.DBTX, subject string) ([]Accommodation, error) {
 	q := accommodationdb.New(db)
 
-	rows, err := q.ListAccommodations(ctx)
+	rows, err := q.ListAccommodationsByOperator(ctx, &subject)
 	if err != nil {
 		return nil, ErrAccommodationNotFound
 	}
@@ -148,6 +156,10 @@ func ListAccommodations(ctx context.Context, db accommodationdb.DBTX) ([]Accommo
 		accommodations = append(accommodations, reconstruct(row))
 	}
 	return accommodations, nil
+}
+
+func (a *Accommodation) OperatorSubject() string {
+	return a.operatorSubject
 }
 
 func (a *Accommodation) StreetAddress() string {
@@ -201,14 +213,19 @@ func validCity(city string) error {
 }
 
 func reconstruct(row accommodationdb.Accommodation) Accommodation {
+	operator := ""
+	if row.OperatorSubject != nil {
+		operator = *row.OperatorSubject
+	}
 	return Accommodation{
-		id:            row.ID,
-		name:          row.Name,
-		phoneNumber:   row.PhoneNumber,
-		postalCode:    row.PostalCode,
-		prefecture:    row.Prefecture,
-		city:          row.City,
-		streetAddress: row.StreetAddress,
-		building:      row.Building,
+		id:              row.ID,
+		operatorSubject: operator,
+		name:            row.Name,
+		phoneNumber:     row.PhoneNumber,
+		postalCode:      row.PostalCode,
+		prefecture:      row.Prefecture,
+		city:            row.City,
+		streetAddress:   row.StreetAddress,
+		building:        row.Building,
 	}
 }

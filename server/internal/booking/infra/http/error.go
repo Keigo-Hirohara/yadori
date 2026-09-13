@@ -18,6 +18,7 @@ var errorTable = []struct {
 	status int
 }{
 	{domain.ErrBookingNotFound, "BOOKING_NOT_FOUND", http.StatusNotFound},
+	{app.ErrBookerNotRegistered, "BOOKER_NOT_REGISTERED", http.StatusNotFound},
 	{accommodation.ErrRoomTypeNotFound, "ROOM_TYPE_NOT_FOUND", http.StatusNotFound},
 	{inventorydomain.ErrInventoryNotFound, "INVENTORY_NOT_FOUND", http.StatusNotFound},
 

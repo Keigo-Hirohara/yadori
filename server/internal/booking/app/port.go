@@ -45,6 +45,12 @@ type HeldSlot struct {
 
 var ErrHoldAlreadyReleased = errors.New("確保はすでに解放されています")
 
+var ErrBookerNotRegistered = errors.New("会員登録が必要です")
+
+type BookerResolver interface {
+	ResolveBookerId(ctx context.Context, subject string) (uuid.UUID, error)
+}
+
 type InventoryHolder interface {
 	Hold(ctx context.Context, roomTypeId uuid.UUID, date time.Time, holdId, bookingId uuid.UUID, expiredAt, now time.Time) (HeldSlot, error)
 	StartPayment(ctx context.Context, roomTypeId uuid.UUID, date time.Time, bookingId uuid.UUID) error
