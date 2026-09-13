@@ -24,6 +24,7 @@ import (
 	inventorypostgres "github.com/Keigo-Hirohara/yadori/internal/inventory/infra/postgres"
 	"github.com/Keigo-Hirohara/yadori/internal/search"
 	searchdb "github.com/Keigo-Hirohara/yadori/internal/search/db"
+	"github.com/Keigo-Hirohara/yadori/internal/shared/auth"
 	sharedhttp "github.com/Keigo-Hirohara/yadori/internal/shared/http"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -61,6 +62,13 @@ func allowedOrigins() []string {
 	}
 }
 
+func env(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
 func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -88,12 +96,29 @@ func run() error {
 		bookinginfra.NewInventoryHolder(inventoryService),
 	)
 
+	audience := env("AUTH_AUDIENCE", "yadori-api")
+	bookerVerifier, err := auth.NewOIDCVerifier(ctx, auth.Booker,
+		env("BOOKER_ISSUER", "http://localhost:8180/realms/yadori-booker"), audience)
+	if err != nil {
+		return err
+	}
+	operatorVerifier, err := auth.NewOIDCVerifier(ctx, auth.Operator,
+		env("OPERATOR_ISSUER", "http://localhost:8180/realms/yadori-operator"), audience)
+	if err != nil {
+		return err
+	}
+
 	mux := routes(handlers{
 		accommodation: accommodation.NewHandler(accommodationdb.DBTX(pool)),
 		booker:        booker.NewHandler(bookerdb.DBTX(pool)),
 		inventory:     inventoryhttp.NewHandler(inventoryService),
-		booking:       bookinghttp.NewHandler(bookingService),
+		booking:       bookinghttp.NewHandler(bookingService, bookinginfra.NewBookerResolver(bookerdb.DBTX(pool))),
 		search:        search.NewHandler(searchdb.DBTX(pool)),
+	}, guards{
+		booker:             auth.RequireBooker(bookerVerifier),
+		operator:           auth.RequireOperator(operatorVerifier),
+		accommodationOwner: accommodation.RequireAccommodationOwner(accommodationdb.DBTX(pool)),
+		roomTypeOwner:      accommodation.RequireRoomTypeOwner(accommodationdb.DBTX(pool)),
 	})
 
 	handler := sharedhttp.Chain(mux,

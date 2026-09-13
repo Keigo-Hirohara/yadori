@@ -170,13 +170,14 @@ func TestCreateRoomType(t *testing.T) {
 
 	t.Run("作成した宿を保存できる", func(t *testing.T) {
 		accommodation, err := NewAccommodation(AccommodationCreateInput{
-			Name:          "舞浜ホテル",
-			PhoneNumber:   "04712344321",
-			PostalCode:    "1000000",
-			Prefecture:    "千葉県",
-			City:          "浦安市",
-			StreetAddress: "舞浜1-1",
-			Building:      "舞浜ホテル",
+			OperatorSubject: "operator-1",
+			Name:            "舞浜ホテル",
+			PhoneNumber:     "04712344321",
+			PostalCode:      "1000000",
+			Prefecture:      "千葉県",
+			City:            "浦安市",
+			StreetAddress:   "舞浜1-1",
+			Building:        "舞浜ホテル",
 		})
 		require.NoError(t, err)
 		require.NoError(t, accommodation.Save(ctx, pool))
@@ -232,13 +233,14 @@ func TestListRoomTypesByAccommodation(t *testing.T) {
 	pool := testutil.SetupDB(t)
 
 	accommodation, err := NewAccommodation(AccommodationCreateInput{
-		Name:          "舞浜ホテル",
-		PhoneNumber:   "04712344321",
-		PostalCode:    "1000000",
-		Prefecture:    "千葉県",
-		City:          "浦安市",
-		StreetAddress: "舞浜1-1",
-		Building:      "舞浜ホテル",
+		OperatorSubject: "operator-1",
+		Name:            "舞浜ホテル",
+		PhoneNumber:     "04712344321",
+		PostalCode:      "1000000",
+		Prefecture:      "千葉県",
+		City:            "浦安市",
+		StreetAddress:   "舞浜1-1",
+		Building:        "舞浜ホテル",
 	})
 
 	if err != nil {

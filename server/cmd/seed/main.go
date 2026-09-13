@@ -17,6 +17,8 @@ import (
 
 const days = 60
 
+const operatorSubject = "a0000000-0000-4000-8000-000000000001"
+
 type roomTypeSeed struct {
 	name           string
 	capacity       int
@@ -82,12 +84,13 @@ func run() error {
 
 	for _, s := range seeds {
 		a, err := accommodation.NewAccommodation(accommodation.AccommodationCreateInput{
-			Name:          s.name,
-			PhoneNumber:   "0312345678",
-			PostalCode:    "1000001",
-			Prefecture:    s.prefecture,
-			City:          s.city,
-			StreetAddress: "1-1-1",
+			OperatorSubject: operatorSubject,
+			Name:            s.name,
+			PhoneNumber:     "0312345678",
+			PostalCode:      "1000001",
+			Prefecture:      s.prefecture,
+			City:            s.city,
+			StreetAddress:   "1-1-1",
 		})
 		if err != nil {
 			return err

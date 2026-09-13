@@ -1,28 +1,35 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { listBookings, type BookingSummary } from "../api/client";
-import { currentBookerId } from "../booker";
+import { ApiError, listMyBookings, type BookingSummary } from "../api/client";
+import RequireLogin from "../components/RequireLogin";
 import { Empty, ErrorBanner, yen } from "../components/ui";
 import { StatusTag } from "./BookingDetail";
 
 const today = new Date().toISOString().slice(0, 10);
 
 export default function BookingHistory() {
+  return (
+    <RequireLogin>
+      <History />
+    </RequireLogin>
+  );
+}
+
+function History() {
   const [bookings, setBookings] = useState<BookingSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const bookerId = currentBookerId();
+  const [unregistered, setUnregistered] = useState(false);
 
   useEffect(() => {
-    if (!bookerId) {
-      setLoading(false);
-      return;
-    }
-    listBookings(bookerId)
+    listMyBookings()
       .then(setBookings)
-      .catch((e) => setError(e.message))
+      .catch((e) => {
+        if (e instanceof ApiError && e.code === "BOOKER_NOT_REGISTERED") setUnregistered(true);
+        else setError(e.message);
+      })
       .finally(() => setLoading(false));
-  }, [bookerId]);
+  }, []);
 
   const upcoming = bookings.filter((b) => b.checkoutDate >= today);
   const past = bookings.filter((b) => b.checkoutDate < today);
@@ -32,7 +39,7 @@ export default function BookingHistory() {
       <h1 className="mt-6 mb-[52px] text-[26px]">予約履歴</h1>
       <ErrorBanner message={error} />
 
-      {!bookerId ? (
+      {unregistered ? (
         <Empty>
           まだご予約がありません。
           <Link to="/" className="ml-1 underline">

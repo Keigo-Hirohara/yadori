@@ -1,8 +1,13 @@
-import { NavLink, Route, Routes } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Route, Routes, useLocation } from "react-router-dom";
+import type { User } from "oidc-client-ts";
+import { getUser, logout, userManager } from "./auth";
+import RequireLogin from "./components/RequireLogin";
 import AccommodationList from "./pages/AccommodationList";
 import AccommodationNew from "./pages/AccommodationNew";
 import AccommodationDetail from "./pages/AccommodationDetail";
 import InventoryCalendar from "./pages/InventoryCalendar";
+import Callback from "./pages/Callback";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `block w-full rounded-[var(--radius-md)] px-3 py-2 text-left text-[14px] ${
@@ -12,6 +17,28 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 export default function App() {
+  const location = useLocation();
+  if (location.pathname === "/callback") return <Callback />;
+
+  return (
+    <RequireLogin>
+      <Shell />
+    </RequireLogin>
+  );
+}
+
+function Shell() {
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    getUser().then(setUser);
+    const onLoaded = (u: User) => setUser(u);
+    userManager.events.addUserLoaded(onLoaded);
+    return () => userManager.events.removeUserLoaded(onLoaded);
+  }, []);
+
+  const name = user?.profile.name ?? user?.profile.email ?? "";
+
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 flex h-screen w-[218px] shrink-0 flex-col gap-[26px] px-[18px] py-[22px]">
@@ -30,8 +57,10 @@ export default function App() {
           </NavLink>
         </nav>
         <div className="mt-auto text-[12px] leading-[1.7] text-[var(--color-neutral-600)]">
-          <div className="text-[var(--color-text)]">運営者</div>
-          <div>yadori 管理</div>
+          <div className="text-[var(--color-text)]">{name}</div>
+          <button className="btn btn-ghost -ml-[5px] mt-1.5 text-[12px]" onClick={() => logout()}>
+            ログアウト
+          </button>
         </div>
       </aside>
 

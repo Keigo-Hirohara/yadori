@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { book, createBooker, getRoomType, type Guest, type RoomType } from "../api/client";
-import { currentBookerId, rememberBookerId } from "../booker";
+import { ApiError, book, getMe, getRoomType, registerMe, type Guest, type RoomType } from "../api/client";
+import RequireLogin from "../components/RequireLogin";
 import { Button, ErrorBanner, Field, inputClass } from "../components/ui";
 import { prefectures } from "../prefectures";
 
@@ -11,6 +11,14 @@ const fmt = (s: string) => {
 };
 
 export default function BookingNew() {
+  return (
+    <RequireLogin>
+      <BookingForm />
+    </RequireLogin>
+  );
+}
+
+function BookingForm() {
   const { roomTypeId = "" } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -36,11 +44,16 @@ export default function BookingNew() {
   const [agreed, setAgreed] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const registered = currentBookerId();
+  const [registered, setRegistered] = useState<boolean | null>(null);
 
   useEffect(() => {
     getRoomType(roomTypeId).then(setRoomType).catch((e) => setError(e.message));
+    getMe()
+      .then(() => setRegistered(true))
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 404) setRegistered(false);
+        else setError((e as Error).message);
+      });
   }, [roomTypeId]);
 
   const updateGuest = (index: number, key: keyof Guest, value: string) =>
@@ -51,13 +64,11 @@ export default function BookingNew() {
     setSaving(true);
     setError(null);
     try {
-      let bookerId = registered;
-      if (!bookerId) {
-        const created = await createBooker(booker);
-        rememberBookerId(created.bookerId);
-        bookerId = created.bookerId;
+      if (registered === false) {
+        await registerMe(booker);
+        setRegistered(true);
       }
-      const booking = await book({ bookerId, roomTypeId, checkinDate: checkin, checkoutDate: checkout, guests });
+      const booking = await book({ roomTypeId, checkinDate: checkin, checkoutDate: checkout, guests });
       navigate(`/bookings/${booking.bookingId}/payment`);
     } catch (e) {
       setError((e as Error).message);
@@ -98,10 +109,9 @@ export default function BookingNew() {
           ))}
         </div>
 
-        {!registered && (
+        {registered === false && (
           <>
             <h3 className="mt-[52px] mb-1.5 text-[20px]">予約者さまの情報</h3>
-            <p className="text-muted mb-6 text-[13px]">はじめてご利用の方は、こちらの入力がそのまま会員登録になります。</p>
             <div className="grid max-w-[560px] gap-5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
               <Field label="姓">
                 <input className={inputClass} value={booker.lastName} onChange={(e) => setBooker({ ...booker, lastName: e.target.value })} />
@@ -146,7 +156,7 @@ export default function BookingNew() {
         </div>
 
         <div className="mt-11 flex flex-wrap gap-[14px]">
-          <Button type="submit" className="h-12 px-8 text-[16px]" disabled={saving || !agreed}>
+          <Button type="submit" className="h-12 px-8 text-[16px]" disabled={saving || !agreed || registered === null}>
             {saving ? "処理中…" : "この内容で予約する"}
           </Button>
           <Button variant="secondary" className="h-12" onClick={() => navigate(-1)}>

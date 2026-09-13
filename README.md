@@ -102,7 +102,7 @@ Webhook との二重経路と定期照合による復旧手段を用意してい
 
 - Go 1.23+
 - Node.js 20+
-- Docker（PostgreSQL とテスト用コンテナに使う）
+- Docker（PostgreSQL・Keycloak・テスト用コンテナに使う）
 
 ### 起動
 
@@ -110,8 +110,8 @@ Webhook との二重経路と定期照合による復旧手段を用意してい
 # 依存をそろえる（最初に1度）
 make setup
 
-# PostgreSQL を起動してマイグレーションを適用
-make db-up
+# PostgreSQL と Keycloak（認証）を起動してマイグレーションを適用
+make up
 make migrate
 
 # 動作確認用のデモデータを入れる（宿3件・部屋タイプ6件・60日分の在庫）
@@ -126,6 +126,20 @@ make dev
 | API | http://localhost:8080 |
 | 管理画面（宿の運営者向け） | http://localhost:5173 |
 | 予約者向けサイト | http://localhost:5174 |
+| Keycloak 管理コンソール | http://localhost:8180 （admin / admin） |
+
+### テスト用アカウント
+
+Keycloak の realm 定義（`auth/realms/`）に含まれています。
+
+| サイト | realm | ユーザー | パスワード |
+|---|---|---|---|
+| 管理画面 | `yadori-operator` | `operator@example.com` | `password` |
+| 予約者向けサイト | `yadori-booker` | `booker@example.com` | `password` |
+
+予約者向けサイトは Keycloak 側でセルフ登録（サインアップ）を許可しています。
+運営者は登録を許可していないので、管理コンソールから追加します。
+`make seed` のデモデータは `operator@example.com` の宿として登録されます。
 
 `Ctrl-C` で4つとも止まります。個別に動かす場合は `make api` / `make worker` / `make admin` / `make booker`。
 

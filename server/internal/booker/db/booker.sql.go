@@ -12,7 +12,7 @@ import (
 )
 
 const getBooker = `-- name: GetBooker :one
-SELECT id, first_name, last_name, postal_code, phone_number, prefecture, city, street_address, building, created_at, updated_at FROM bookers WHERE id = $1
+SELECT id, first_name, last_name, postal_code, phone_number, prefecture, city, street_address, building, created_at, updated_at, subject FROM bookers WHERE id = $1
 `
 
 func (q *Queries) GetBooker(ctx context.Context, id uuid.UUID) (Booker, error) {
@@ -30,6 +30,31 @@ func (q *Queries) GetBooker(ctx context.Context, id uuid.UUID) (Booker, error) {
 		&i.Building,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Subject,
+	)
+	return i, err
+}
+
+const getBookerBySubject = `-- name: GetBookerBySubject :one
+SELECT id, first_name, last_name, postal_code, phone_number, prefecture, city, street_address, building, created_at, updated_at, subject FROM bookers WHERE subject = $1
+`
+
+func (q *Queries) GetBookerBySubject(ctx context.Context, subject *string) (Booker, error) {
+	row := q.db.QueryRow(ctx, getBookerBySubject, subject)
+	var i Booker
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.PostalCode,
+		&i.PhoneNumber,
+		&i.Prefecture,
+		&i.City,
+		&i.StreetAddress,
+		&i.Building,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Subject,
 	)
 	return i, err
 }
@@ -37,9 +62,9 @@ func (q *Queries) GetBooker(ctx context.Context, id uuid.UUID) (Booker, error) {
 const upsertBooker = `-- name: UpsertBooker :exec
 INSERT INTO bookers (
     id, first_name, last_name, postal_code, phone_number,
-    prefecture, city, street_address, building
+    prefecture, city, street_address, building, subject
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 )
 ON CONFLICT (id) DO UPDATE SET
     first_name     = EXCLUDED.first_name,
@@ -63,6 +88,7 @@ type UpsertBookerParams struct {
 	City          string
 	StreetAddress string
 	Building      string
+	Subject       *string
 }
 
 func (q *Queries) UpsertBooker(ctx context.Context, arg UpsertBookerParams) error {
@@ -76,6 +102,7 @@ func (q *Queries) UpsertBooker(ctx context.Context, arg UpsertBookerParams) erro
 		arg.City,
 		arg.StreetAddress,
 		arg.Building,
+		arg.Subject,
 	)
 	return err
 }

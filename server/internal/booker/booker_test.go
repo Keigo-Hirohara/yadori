@@ -13,6 +13,7 @@ import (
 func TestNewBooker(t *testing.T) {
 	t.Run("必須項目が揃っていれば、会員を登録できる", func(t *testing.T) {
 		_, err := NewBooker(BookerCreateInput{
+			Subject:       "booker-1",
 			FirstName:     "太郎",
 			LastName:      "山田",
 			PhoneNumber:   "09012345678",
@@ -40,6 +41,7 @@ func TestNewBooker(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					got, err := NewBooker(BookerCreateInput{
+						Subject:       "booker-1",
 						FirstName:     tt.input,
 						LastName:      "山田",
 						PhoneNumber:   "09012345678",
@@ -71,6 +73,7 @@ func TestNewBooker(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					_, err := NewBooker(BookerCreateInput{
+						Subject:       "booker-1",
 						FirstName:     tt.input,
 						LastName:      "山田",
 						PhoneNumber:   "09012345678",
@@ -104,6 +107,7 @@ func TestNewBooker(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					got, err := NewBooker(BookerCreateInput{
+						Subject:       "booker-1",
 						FirstName:     "太郎",
 						LastName:      tt.input,
 						PhoneNumber:   "09012345678",
@@ -135,6 +139,7 @@ func TestNewBooker(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					_, err := NewBooker(BookerCreateInput{
+						Subject:       "booker-1",
 						FirstName:     "太郎",
 						LastName:      tt.input,
 						PhoneNumber:   "09012345678",
@@ -171,6 +176,7 @@ func TestNewBooker(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					got, err := NewBooker(BookerCreateInput{
+						Subject:       "booker-1",
 						FirstName:     "太郎",
 						LastName:      "山田",
 						PhoneNumber:   tt.input,
@@ -205,6 +211,7 @@ func TestNewBooker(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					_, err := NewBooker(BookerCreateInput{
+						Subject:       "booker-1",
 						FirstName:     "太郎",
 						LastName:      "山田",
 						PhoneNumber:   tt.input,
@@ -240,6 +247,7 @@ func TestNewBooker(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					got, err := NewBooker(BookerCreateInput{
+						Subject:       "booker-1",
 						FirstName:     "太郎",
 						LastName:      "山田",
 						PhoneNumber:   "09012345678",
@@ -273,6 +281,7 @@ func TestNewBooker(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					_, err := NewBooker(BookerCreateInput{
+						Subject:       "booker-1",
 						FirstName:     "太郎",
 						LastName:      "山田",
 						PhoneNumber:   "09012345678",
@@ -296,6 +305,7 @@ func TestNewBooker(t *testing.T) {
 	t.Run("都道府県", func(t *testing.T) {
 		t.Run("入力されていれば、登録できる", func(t *testing.T) {
 			got, err := NewBooker(BookerCreateInput{
+				Subject:       "booker-1",
 				FirstName:     "太郎",
 				LastName:      "山田",
 				PhoneNumber:   "09012345678",
@@ -315,6 +325,7 @@ func TestNewBooker(t *testing.T) {
 
 		t.Run("空だと、登録できない", func(t *testing.T) {
 			_, err := NewBooker(BookerCreateInput{
+				Subject:       "booker-1",
 				FirstName:     "太郎",
 				LastName:      "山田",
 				PhoneNumber:   "09012345678",
@@ -336,6 +347,7 @@ func TestNewBooker(t *testing.T) {
 	t.Run("市区町村", func(t *testing.T) {
 		t.Run("入力されていれば、登録できる", func(t *testing.T) {
 			got, err := NewBooker(BookerCreateInput{
+				Subject:       "booker-1",
 				FirstName:     "太郎",
 				LastName:      "山田",
 				PhoneNumber:   "09012345678",
@@ -355,6 +367,7 @@ func TestNewBooker(t *testing.T) {
 
 		t.Run("空だと、登録できない", func(t *testing.T) {
 			_, err := NewBooker(BookerCreateInput{
+				Subject:       "booker-1",
 				FirstName:     "太郎",
 				LastName:      "山田",
 				PhoneNumber:   "09012345678",
@@ -384,6 +397,7 @@ func TestSaveBooker(t *testing.T) {
 
 	t.Run("会員を登録し、保存ができる", func(t *testing.T) {
 		booker, err := NewBooker(BookerCreateInput{
+			Subject:       "booker-1",
 			FirstName:     "太郎",
 			LastName:      "山田",
 			PhoneNumber:   "09012345678",
@@ -413,6 +427,23 @@ func TestSaveBooker(t *testing.T) {
 		}
 		if err.Error() != ErrBookerNotFound.Error() {
 			t.Errorf("エラーメッセージが違います: got %q", err.Error())
+		}
+	})
+}
+
+func TestNewBooker_利用者(t *testing.T) {
+	t.Run("ログイン中の利用者が特定できなければ登録できない", func(t *testing.T) {
+		_, err := NewBooker(BookerCreateInput{
+			FirstName:     "太郎",
+			LastName:      "山田",
+			PhoneNumber:   "09012345678",
+			PostalCode:    "1000001",
+			Prefecture:    "東京都",
+			City:          "千代田区",
+			StreetAddress: "1-1-1",
+		})
+		if err != ErrSubjectRequired {
+			t.Fatalf("ErrSubjectRequired を期待: got %v", err)
 		}
 	})
 }

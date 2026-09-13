@@ -9,12 +9,15 @@ import (
 
 	bookerdb "github.com/Keigo-Hirohara/yadori/internal/booker/db"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var (
 	phoneNumberPattern = regexp.MustCompile(`^0\d{9,10}$`)
 	postalCodePattern  = regexp.MustCompile(`^\d{7}$`)
 )
+
+const uniqueViolation = "23505"
 
 var (
 	ErrInvalidFirstName   = errors.New("名は1文字以上60文字以内にしてください")
@@ -25,10 +28,13 @@ var (
 	ErrCityRequired       = errors.New("市区町村を入力してください")
 	ErrFailedToSave       = errors.New("会員の登録に失敗しました")
 	ErrBookerNotFound     = errors.New("会員が見つかりませんでした")
+	ErrSubjectRequired    = errors.New("ログイン中の利用者が特定できません")
+	ErrAlreadyRegistered  = errors.New("この利用者はすでに会員登録されています")
 )
 
 type Booker struct {
 	id            uuid.UUID
+	subject       string
 	firstName     string
 	lastName      string
 	postalCode    string
@@ -40,6 +46,7 @@ type Booker struct {
 }
 
 type BookerCreateInput struct {
+	Subject       string
 	FirstName     string
 	LastName      string
 	PostalCode    string
@@ -51,6 +58,9 @@ type BookerCreateInput struct {
 }
 
 func NewBooker(input BookerCreateInput) (Booker, error) {
+	if input.Subject == "" {
+		return Booker{}, ErrSubjectRequired
+	}
 	if err := validFirstName(input.FirstName); err != nil {
 		return Booker{}, err
 	}
@@ -79,6 +89,7 @@ func NewBooker(input BookerCreateInput) (Booker, error) {
 
 	return Booker{
 		id:            uuid.New(),
+		subject:       input.Subject,
 		firstName:     input.FirstName,
 		lastName:      input.LastName,
 		postalCode:    postalCode,
@@ -103,13 +114,29 @@ func (b *Booker) Save(ctx context.Context, db bookerdb.DBTX) error {
 		City:          b.city,
 		StreetAddress: b.streetAddress,
 		Building:      b.building,
+		Subject:       &b.subject,
 	})
 
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
+			return ErrAlreadyRegistered
+		}
 		return ErrFailedToSave
 	}
 
 	return nil
+}
+
+func FindBySubject(ctx context.Context, db bookerdb.DBTX, subject string) (*Booker, error) {
+	q := bookerdb.New(db)
+
+	row, err := q.GetBookerBySubject(ctx, &subject)
+	if err != nil {
+		return nil, ErrBookerNotFound
+	}
+	result := reconstruct(row)
+	return &result, nil
 }
 
 func FindById(ctx context.Context, db bookerdb.DBTX, id uuid.UUID) (*Booker, error) {
@@ -126,6 +153,10 @@ func FindById(ctx context.Context, db bookerdb.DBTX, id uuid.UUID) (*Booker, err
 
 func (b *Booker) ID() uuid.UUID {
 	return b.id
+}
+
+func (b *Booker) Subject() string {
+	return b.subject
 }
 
 func (b *Booker) FirstName() string {
@@ -199,8 +230,13 @@ func validCity(city string) error {
 }
 
 func reconstruct(row bookerdb.Booker) Booker {
+	subject := ""
+	if row.Subject != nil {
+		subject = *row.Subject
+	}
 	return Booker{
 		id:            row.ID,
+		subject:       subject,
 		firstName:     row.FirstName,
 		lastName:      row.LastName,
 		postalCode:    row.PostalCode,

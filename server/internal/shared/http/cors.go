@@ -10,7 +10,7 @@ func CORS(allowedOrigins []string) Middleware {
 	allowedMethods := strings.Join([]string{
 		http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions,
 	}, ", ")
-	allowedHeaders := strings.Join([]string{"Content-Type", "X-Request-Id"}, ", ")
+	allowedHeaders := strings.Join([]string{"Authorization", "Content-Type", "X-Request-Id"}, ", ")
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

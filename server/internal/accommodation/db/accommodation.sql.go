@@ -12,7 +12,7 @@ import (
 )
 
 const getAccommodation = `-- name: GetAccommodation :one
-SELECT id, name, phone_number, postal_code, prefecture, city, street_address, building, created_at, updated_at FROM accommodations WHERE id = $1
+SELECT id, name, phone_number, postal_code, prefecture, city, street_address, building, created_at, updated_at, operator_subject FROM accommodations WHERE id = $1
 `
 
 func (q *Queries) GetAccommodation(ctx context.Context, id uuid.UUID) (Accommodation, error) {
@@ -29,12 +29,27 @@ func (q *Queries) GetAccommodation(ctx context.Context, id uuid.UUID) (Accommoda
 		&i.Building,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OperatorSubject,
 	)
 	return i, err
 }
 
+const getRoomTypeOperator = `-- name: GetRoomTypeOperator :one
+SELECT a.operator_subject
+FROM room_types rt
+JOIN accommodations a ON a.id = rt.accommodation_id
+WHERE rt.id = $1 AND rt.deleted_at IS NULL
+`
+
+func (q *Queries) GetRoomTypeOperator(ctx context.Context, id uuid.UUID) (*string, error) {
+	row := q.db.QueryRow(ctx, getRoomTypeOperator, id)
+	var operator_subject *string
+	err := row.Scan(&operator_subject)
+	return operator_subject, err
+}
+
 const listAccommodations = `-- name: ListAccommodations :many
-SELECT id, name, phone_number, postal_code, prefecture, city, street_address, building, created_at, updated_at FROM accommodations
+SELECT id, name, phone_number, postal_code, prefecture, city, street_address, building, created_at, updated_at, operator_subject FROM accommodations
 ORDER BY created_at DESC
 `
 
@@ -58,6 +73,45 @@ func (q *Queries) ListAccommodations(ctx context.Context) ([]Accommodation, erro
 			&i.Building,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OperatorSubject,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAccommodationsByOperator = `-- name: ListAccommodationsByOperator :many
+SELECT id, name, phone_number, postal_code, prefecture, city, street_address, building, created_at, updated_at, operator_subject FROM accommodations
+WHERE operator_subject = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListAccommodationsByOperator(ctx context.Context, operatorSubject *string) ([]Accommodation, error) {
+	rows, err := q.db.Query(ctx, listAccommodationsByOperator, operatorSubject)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Accommodation
+	for rows.Next() {
+		var i Accommodation
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.PhoneNumber,
+			&i.PostalCode,
+			&i.Prefecture,
+			&i.City,
+			&i.StreetAddress,
+			&i.Building,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.OperatorSubject,
 		); err != nil {
 			return nil, err
 		}
@@ -71,9 +125,9 @@ func (q *Queries) ListAccommodations(ctx context.Context) ([]Accommodation, erro
 
 const upsertAccommodation = `-- name: UpsertAccommodation :exec
 INSERT INTO accommodations (
-    id, name, phone_number, postal_code, prefecture, city, street_address, building
+    id, name, phone_number, postal_code, prefecture, city, street_address, building, operator_subject
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
 )
 ON CONFLICT (id) DO UPDATE SET
     name           = EXCLUDED.name,
@@ -87,14 +141,15 @@ ON CONFLICT (id) DO UPDATE SET
 `
 
 type UpsertAccommodationParams struct {
-	ID            uuid.UUID
-	Name          string
-	PhoneNumber   string
-	PostalCode    string
-	Prefecture    string
-	City          string
-	StreetAddress string
-	Building      string
+	ID              uuid.UUID
+	Name            string
+	PhoneNumber     string
+	PostalCode      string
+	Prefecture      string
+	City            string
+	StreetAddress   string
+	Building        string
+	OperatorSubject *string
 }
 
 func (q *Queries) UpsertAccommodation(ctx context.Context, arg UpsertAccommodationParams) error {
@@ -107,6 +162,7 @@ func (q *Queries) UpsertAccommodation(ctx context.Context, arg UpsertAccommodati
 		arg.City,
 		arg.StreetAddress,
 		arg.Building,
+		arg.OperatorSubject,
 	)
 	return err
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	accommodationdb "github.com/Keigo-Hirohara/yadori/internal/accommodation/db"
+	"github.com/Keigo-Hirohara/yadori/internal/shared/auth"
 	sharedhttp "github.com/Keigo-Hirohara/yadori/internal/shared/http"
 )
 
@@ -30,6 +31,7 @@ var errorTable = []struct {
 	{ErrPrefectureRequired, "PREFECTURE_REQUIRED", http.StatusBadRequest},
 	{ErrCityRequired, "CITY_REQUIRED", http.StatusBadRequest},
 	{ErrInvalidRoomTypeName, "INVALID_ROOM_TYPE_NAME", http.StatusBadRequest},
+	{ErrOperatorRequired, auth.CodeUnauthenticated, http.StatusUnauthorized},
 	{ErrInvalidCapacity, "INVALID_CAPACITY", http.StatusBadRequest},
 }
 
@@ -78,19 +80,21 @@ func toAccommodationResponse(a *Accommodation) accommodationResponse {
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+	subject, _ := auth.OperatorFrom(r.Context())
 	var req accommodationRequest
 	if !sharedhttp.DecodeJSON(w, r, &req) {
 		return
 	}
 
 	a, err := NewAccommodation(AccommodationCreateInput{
-		Name:          req.Name,
-		PhoneNumber:   req.PhoneNumber,
-		PostalCode:    req.PostalCode,
-		Prefecture:    req.Prefecture,
-		City:          req.City,
-		StreetAddress: req.StreetAddress,
-		Building:      req.Building,
+		OperatorSubject: subject,
+		Name:            req.Name,
+		PhoneNumber:     req.PhoneNumber,
+		PostalCode:      req.PostalCode,
+		Prefecture:      req.Prefecture,
+		City:            req.City,
+		StreetAddress:   req.StreetAddress,
+		Building:        req.Building,
 	})
 	if err != nil {
 		writeError(w, err)
@@ -119,7 +123,8 @@ func (h *Handler) Find(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	accommodations, err := ListAccommodations(r.Context(), h.db)
+	subject, _ := auth.OperatorFrom(r.Context())
+	accommodations, err := ListAccommodationsByOperator(r.Context(), h.db, subject)
 	if err != nil {
 		writeError(w, err)
 		return

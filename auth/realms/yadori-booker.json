@@ -1,0 +1,51 @@
+{
+  "realm": "yadori-booker",
+  "displayName": "yadori 予約者",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "sslRequired": "none",
+  "accessTokenLifespan": 900,
+  "clients": [
+    {
+      "clientId": "yadori-booker-web",
+      "name": "予約者向けサイト",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:5174/*"],
+      "webOrigins": ["http://localhost:5174"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5174/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "yadori-api audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "yadori-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "b0000000-0000-4000-8000-000000000001",
+      "username": "booker@example.com",
+      "email": "booker@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "太郎",
+      "lastName": "山田",
+      "credentials": [{ "type": "password", "value": "password", "temporary": false }]
+    }
+  ]
+}

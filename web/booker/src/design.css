@@ -1,6 +1,6 @@
 :root {
-  --color-bg: #f3f2f2;
-  --color-surface: #eae9e9;
+  --color-bg: #ffffff;
+  --color-surface: #f4f3f3;
   --color-text: #201e1d;
   --color-accent: #0088b0;
   --color-accent-2: #d6006c;
@@ -30,9 +30,9 @@
   --color-accent-2-700: #aa0b56;
   --color-accent-2-800: #790e3d;
 
-  --font-heading: "Source Serif 4", "Noto Serif JP", serif;
+  --font-heading: "Inter", "Noto Sans JP", sans-serif;
   --font-heading-weight: 600;
-  --font-body: "Source Serif 4", "Noto Serif JP", serif;
+  --font-body: "Inter", "Noto Sans JP", sans-serif;
 
   --space-1: 5px;
   --space-2: 10px;
@@ -41,9 +41,9 @@
   --space-6: 30px;
   --space-8: 40px;
 
-  --radius-sm: 1px;
-  --radius-md: 2px;
-  --radius-lg: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
 
   --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
   --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
@@ -80,7 +80,7 @@ h1, h2, h3, h4 {
   font-size: 14px; line-height: 1.2; color: var(--color-text);
   background: transparent; border: 1px solid transparent;
   padding: var(--space-2) calc(var(--space-3) * 1.2);
-  border-radius: var(--radius-md);
+  border-radius: 9999px;
 }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-primary { background: var(--color-accent); color: var(--color-bg); }
@@ -101,19 +101,24 @@ h1, h2, h3, h4 {
 }
 .field-hint { font-size: 12px; color: var(--color-neutral-600); margin-top: 5px; }
 .input {
-  width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
+  width: 100%; min-height: 42px; padding: 8px 14px; font: inherit;
   font-size: 14px; color: var(--color-text); caret-color: var(--color-accent);
-  background: var(--color-surface);
-  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+  background: #ffffff;
+  border: 1px solid var(--color-neutral-300); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .input::placeholder { color: color-mix(in srgb, var(--color-text) 45%, transparent); opacity: 1; }
-.input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
-.input:focus-visible { border-color: var(--color-accent); outline: none; }
+.input:hover { border-color: var(--color-neutral-500); }
+.input:focus-visible {
+  border-color: var(--color-accent); outline: none;
+  box-shadow: 0 0 0 3px var(--color-accent-200);
+}
 
 .radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
 .radio input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
 .radio .dot {
-  width: 16px; height: 16px; flex: none; border-radius: 2px;
+  width: 16px; height: 16px; flex: none; border-radius: 50%;
   border: 1.5px solid var(--color-divider);
 }
 .radio:hover .dot { border-color: var(--color-accent); }
@@ -123,8 +128,8 @@ h1, h2, h3, h4 {
 }
 
 .seg {
-  display: inline-flex; overflow: hidden;
-  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+  display: inline-flex; overflow: hidden; background: #ffffff;
+  border: 1px solid var(--color-neutral-300); border-radius: 9999px;
 }
 .seg-opt {
   display: inline-flex; align-items: center; gap: 6px;
@@ -137,7 +142,8 @@ h1, h2, h3, h4 {
 
 .card {
   display: flex; flex-direction: column; gap: var(--space-2);
-  padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface);
+  padding: var(--space-3); border-radius: var(--radius-lg); background: var(--color-surface);
+  border: 1px solid color-mix(in srgb, var(--color-text) 6%, transparent);
 }
 .card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent); }
 .card-title {

@@ -1,0 +1,50 @@
+{
+  "realm": "yadori-operator",
+  "displayName": "yadori 運営者",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "sslRequired": "none",
+  "accessTokenLifespan": 900,
+  "clients": [
+    {
+      "clientId": "yadori-admin-web",
+      "name": "管理画面",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:5173/*"],
+      "webOrigins": ["http://localhost:5173"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "yadori-api audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "yadori-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "a0000000-0000-4000-8000-000000000001",
+      "username": "operator@example.com",
+      "email": "operator@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "恭子",
+      "lastName": "佐久間",
+      "credentials": [{ "type": "password", "value": "password", "temporary": false }]
+    }
+  ]
+}

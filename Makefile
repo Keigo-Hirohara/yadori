@@ -5,10 +5,16 @@ endif
 
 DATABASE_URL ?= postgres://yadori:yadori@localhost:5432/yadori?sslmode=disable
 ALLOWED_ORIGINS ?= http://localhost:5173,http://localhost:5174
+BOOKER_ISSUER ?= http://localhost:8180/realms/yadori-booker
+OPERATOR_ISSUER ?= http://localhost:8180/realms/yadori-operator
+AUTH_AUDIENCE ?= yadori-api
 export DATABASE_URL
 export ALLOWED_ORIGINS
+export BOOKER_ISSUER
+export OPERATOR_ISSUER
+export AUTH_AUDIENCE
 
-.PHONY: help setup dev api worker admin booker migrate seed db-up db-down db-reset test test-short sqlc build fmt
+.PHONY: help setup dev api worker admin booker migrate seed up db-up auth-up down db-reset test test-short sqlc build fmt
 
 help:
 	@echo "make setup    依存をそろえる"
@@ -20,7 +26,9 @@ help:
 	@echo "make booker   予約者向けサイトだけ起動"
 	@echo "make migrate  マイグレーションを適用"
 	@echo "make seed     動作確認用のデモデータを入れる"
-	@echo "make db-up    PostgreSQL を起動（Docker が要る）"
+	@echo "make up       PostgreSQL と Keycloak を起動（Docker が要る）"
+	@echo "make db-up    PostgreSQL だけ起動"
+	@echo "make auth-up  Keycloak だけ起動"
 	@echo "make test     全テスト（DBを含む）とフロントのビルド検査"
 	@echo "make test-short DB不要な高速テストのみ"
 	@echo "make sqlc     SQLからコードを生成"
@@ -59,14 +67,24 @@ migrate:
 seed:
 	cd server && go run ./cmd/seed
 
+up: db-up auth-up
+
 db-up:
-	docker compose up -d
+	docker compose up -d db
 	@echo "PostgreSQL が立ち上がるまで待っています..."
 	@until docker compose exec -T db pg_isready -U yadori >/dev/null 2>&1; do sleep 1; done
-	@echo "起動しました"
+	@echo "PostgreSQL: 起動しました"
 
-db-down:
+auth-up:
+	docker compose up -d keycloak
+	@echo "Keycloak が立ち上がるまで待っています（初回は1分ほど）..."
+	@until curl -sf $(BOOKER_ISSUER)/.well-known/openid-configuration >/dev/null 2>&1; do sleep 2; done
+	@echo "Keycloak: 起動しました  管理コンソール http://localhost:8180 (admin / admin)"
+
+down:
 	docker compose down
+
+db-down: down
 
 db-reset:
 	docker compose down -v

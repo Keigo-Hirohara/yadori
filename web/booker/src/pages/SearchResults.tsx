@@ -42,10 +42,9 @@ export default function SearchResults() {
         {prefecture || "全国"} ／ {fmt(checkin)} 〜 {fmt(checkout)}
         {nights ? ` ${nights}泊` : ""} ／ {guests}名
       </p>
-      <h1 className="mb-1.5 text-[26px]">
+      <h1 className="mb-14 text-[26px]">
         {loading ? "検索中" : `検索結果 ${results.length}件`}
       </h1>
-      <p className="text-muted mb-14 text-[12px]">表示は参考情報です。空室の確定はご予約時となります。</p>
       <ErrorBanner message={error} />
 
       {loading ? (

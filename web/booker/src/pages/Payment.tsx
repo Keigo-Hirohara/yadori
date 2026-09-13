@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getBooking, pay, type Booking } from "../api/client";
+import RequireLogin from "../components/RequireLogin";
 import { Button, ErrorBanner, yen } from "../components/ui";
 
 const HOLD_MINUTES = 30;
 type Mode = "success" | "failure" | "timeout";
 
 export default function Payment() {
+  return (
+    <RequireLogin>
+      <PaymentForm />
+    </RequireLogin>
+  );
+}
+
+function PaymentForm() {
   const { bookingId = "" } = useParams();
   const navigate = useNavigate();
   const [booking, setBooking] = useState<Booking | null>(null);
@@ -104,9 +113,6 @@ export default function Payment() {
             </button>
           ))}
         </div>
-        <p className="text-muted mt-2.5 text-[12px]">
-          無応答の場合、予約も在庫もそのまま残ります。期限切れ回収が後で決着させます。
-        </p>
       </div>
     </div>
   );

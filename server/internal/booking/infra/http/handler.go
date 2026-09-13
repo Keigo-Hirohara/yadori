@@ -7,6 +7,7 @@ import (
 
 	"github.com/Keigo-Hirohara/yadori/internal/booking/app"
 	"github.com/Keigo-Hirohara/yadori/internal/booking/domain"
+	"github.com/Keigo-Hirohara/yadori/internal/shared/auth"
 	sharedhttp "github.com/Keigo-Hirohara/yadori/internal/shared/http"
 	"github.com/google/uuid"
 )
@@ -22,10 +23,43 @@ type service interface {
 
 type Handler struct {
 	service service
+	bookers app.BookerResolver
 }
 
-func NewHandler(s service) *Handler {
-	return &Handler{service: s}
+func NewHandler(s service, bookers app.BookerResolver) *Handler {
+	return &Handler{service: s, bookers: bookers}
+}
+
+func (h *Handler) currentBooker(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	subject, ok := auth.BookerFrom(r.Context())
+	if !ok {
+		sharedhttp.WriteError(w, http.StatusUnauthorized, auth.CodeUnauthenticated, "ログインが必要です")
+		return uuid.Nil, false
+	}
+	bookerId, err := h.bookers.ResolveBookerId(r.Context(), subject)
+	if err != nil {
+		writeError(w, err)
+		return uuid.Nil, false
+	}
+	return bookerId, true
+}
+
+func (h *Handler) ownBooking(w http.ResponseWriter, r *http.Request) (*domain.Booking, bool) {
+	bookerId, ok := h.currentBooker(w, r)
+	if !ok {
+		return nil, false
+	}
+	bookingId, err := sharedhttp.PathUUID(r, "bookingId")
+	if err != nil {
+		sharedhttp.WriteBadRequest(w)
+		return nil, false
+	}
+	booking, err := h.service.Find(r.Context(), bookingId)
+	if err != nil || booking.BookerId() != bookerId {
+		writeError(w, domain.ErrBookingNotFound)
+		return nil, false
+	}
+	return booking, true
 }
 
 type guestBody struct {
@@ -82,7 +116,6 @@ func statusText(s domain.Status) string {
 }
 
 type bookRequest struct {
-	BookerId     string      `json:"bookerId"`
 	RoomTypeId   string      `json:"roomTypeId"`
 	CheckinDate  string      `json:"checkinDate"`
 	CheckoutDate string      `json:"checkoutDate"`
@@ -90,16 +123,15 @@ type bookRequest struct {
 }
 
 func (h *Handler) Book(w http.ResponseWriter, r *http.Request) {
+	bookerId, ok := h.currentBooker(w, r)
+	if !ok {
+		return
+	}
 	var req bookRequest
 	if !sharedhttp.DecodeJSON(w, r, &req) {
 		return
 	}
 
-	bookerId, err := uuid.Parse(req.BookerId)
-	if err != nil {
-		sharedhttp.WriteBadRequest(w)
-		return
-	}
 	roomTypeId, err := uuid.Parse(req.RoomTypeId)
 	if err != nil {
 		sharedhttp.WriteBadRequest(w)
@@ -136,15 +168,8 @@ func (h *Handler) Book(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Find(w http.ResponseWriter, r *http.Request) {
-	bookingId, err := sharedhttp.PathUUID(r, "bookingId")
-	if err != nil {
-		sharedhttp.WriteBadRequest(w)
-		return
-	}
-
-	booking, err := h.service.Find(r.Context(), bookingId)
-	if err != nil {
-		writeError(w, err)
+	booking, ok := h.ownBooking(w, r)
+	if !ok {
 		return
 	}
 	sharedhttp.WriteJSON(w, http.StatusOK, toResponse(booking))
@@ -161,9 +186,8 @@ type bookingSummaryResponse struct {
 }
 
 func (h *Handler) ListByBooker(w http.ResponseWriter, r *http.Request) {
-	bookerId, err := sharedhttp.PathUUID(r, "bookerId")
-	if err != nil {
-		sharedhttp.WriteBadRequest(w)
+	bookerId, ok := h.currentBooker(w, r)
+	if !ok {
 		return
 	}
 
@@ -193,11 +217,11 @@ type paymentRequest struct {
 }
 
 func (h *Handler) Payment(w http.ResponseWriter, r *http.Request) {
-	bookingId, err := sharedhttp.PathUUID(r, "bookingId")
-	if err != nil {
-		sharedhttp.WriteBadRequest(w)
+	own, ok := h.ownBooking(w, r)
+	if !ok {
 		return
 	}
+	bookingId := own.Id()
 	var req paymentRequest
 	if !sharedhttp.DecodeJSON(w, r, &req) {
 		return
@@ -240,11 +264,11 @@ type cancelResponse struct {
 }
 
 func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
-	bookingId, err := sharedhttp.PathUUID(r, "bookingId")
-	if err != nil {
-		sharedhttp.WriteBadRequest(w)
+	own, ok := h.ownBooking(w, r)
+	if !ok {
 		return
 	}
+	bookingId := own.Id()
 
 	fee, err := h.service.Cancel(r.Context(), bookingId, domain.ByGuest, time.Now())
 	if err != nil {
@@ -263,11 +287,11 @@ type changeGuestsRequest struct {
 }
 
 func (h *Handler) ChangeGuests(w http.ResponseWriter, r *http.Request) {
-	bookingId, err := sharedhttp.PathUUID(r, "bookingId")
-	if err != nil {
-		sharedhttp.WriteBadRequest(w)
+	own, ok := h.ownBooking(w, r)
+	if !ok {
 		return
 	}
+	bookingId := own.Id()
 	var req changeGuestsRequest
 	if !sharedhttp.DecodeJSON(w, r, &req) {
 		return
