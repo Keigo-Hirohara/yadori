@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  server:
+    name: サーバー（並行テストを含む）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+
+      - name: sqlc の生成物がSQLと一致しているか
+        run: |
+          go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0 generate
+          git diff --exit-code -- . || (echo "::error::sqlc の生成物が古いです。make sqlc を実行してコミットしてください" && exit 1)
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: テスト（testcontainers で PostgreSQL を起動。100 goroutine の並行テストを含む）
+        run: go test -race -count=1 ./...
+
+  web:
+    name: フロントエンド
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [admin, booker]
+    defaults:
+      run:
+        working-directory: web/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/${{ matrix.app }}/package-lock.json
+
+      - run: npm ci
+      - run: npm run build

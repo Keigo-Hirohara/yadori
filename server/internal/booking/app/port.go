@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/Keigo-Hirohara/yadori/internal/booking/domain"
@@ -14,6 +15,7 @@ type Repository interface {
 	FindForUpdate(ctx context.Context, id uuid.UUID) (*domain.Booking, error)
 
 	Save(ctx context.Context, b *domain.Booking) error
+	ListStaleTemporaryHoldIds(ctx context.Context, before time.Time) ([]uuid.UUID, error)
 
 	ListSummariesByBookerId(ctx context.Context, bookerId uuid.UUID) ([]BookingSummary, error)
 }
@@ -40,6 +42,8 @@ type HeldSlot struct {
 	SlotNo    int
 	FeeAmount int
 }
+
+var ErrHoldAlreadyReleased = errors.New("確保はすでに解放されています")
 
 type InventoryHolder interface {
 	Hold(ctx context.Context, roomTypeId uuid.UUID, date time.Time, holdId, bookingId uuid.UUID, expiredAt, now time.Time) (HeldSlot, error)

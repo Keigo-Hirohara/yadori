@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"time"
 
 	bookingapp "github.com/Keigo-Hirohara/yadori/internal/booking/app"
 	"github.com/Keigo-Hirohara/yadori/internal/booking/domain"
@@ -111,6 +112,10 @@ func (r *Repository) ListSummariesByBookerId(
 		})
 	}
 	return summaries, nil
+}
+
+func (r *Repository) ListStaleTemporaryHoldIds(ctx context.Context, before time.Time) ([]uuid.UUID, error) {
+	return r.q.ListStaleTemporaryHoldIds(ctx, before)
 }
 
 func (r *Repository) load(ctx context.Context, row bookingdb.Booking) (*domain.Booking, error) {

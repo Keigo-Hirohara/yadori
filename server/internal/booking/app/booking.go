@@ -263,11 +263,37 @@ func (s *Service) compensate(ctx context.Context, booking *domain.Booking, held 
 func (s *Service) releaseAll(ctx context.Context, booking *domain.Booking) error {
 	roomTypeId := booking.RoomTypeId()
 	for _, date := range booking.StayPeriod().Dates() {
-		if err := s.inventory.Release(ctx, roomTypeId, date, booking.Id()); err != nil {
+		err := s.inventory.Release(ctx, roomTypeId, date, booking.Id())
+		if err != nil && !errors.Is(err, ErrHoldAlreadyReleased) {
 			return fmt.Errorf("%w: %s", ErrCompensationFailed, date.Format(time.DateOnly))
 		}
 	}
 	return nil
+}
+
+func (s *Service) ExpireStale(ctx context.Context, now time.Time) (int, error) {
+	var ids []uuid.UUID
+	err := s.tx.WithinTx(ctx, func(ctx context.Context, repo Repository) error {
+		var err error
+		ids, err = repo.ListStaleTemporaryHoldIds(ctx, now.Add(-HoldTTL))
+		return err
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	expired := 0
+	for _, id := range ids {
+		if _, err := s.Cancel(ctx, id, domain.Expired, now); err != nil {
+			if errors.Is(err, ErrCompensationFailed) {
+				expired++
+				continue
+			}
+			return expired, err
+		}
+		expired++
+	}
+	return expired, nil
 }
 
 func buildGuests(in []GuestInput) ([]domain.Guest, error) {

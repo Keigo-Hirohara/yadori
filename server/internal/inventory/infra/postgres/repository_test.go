@@ -460,3 +460,76 @@ func TestDoubleBooking(t *testing.T) {
 	require.Equal(t, attempts-1, soldOut)
 	require.Equal(t, 1, countHolds(t, pool, roomTypeId, date), "確保の行数が枠数を超えてはいけない")
 }
+
+func TestNoDeadlockAcrossDates(t *testing.T) {
+	if testing.Short() {
+		t.Skip("DBが必要なため -short では実行しない")
+	}
+	ctx := context.Background()
+	pool := testutil.SetupDB(t)
+	repo := postgres.NewRepository(pool)
+	tx := postgres.NewTransactor(pool)
+
+	roomTypeId := insertRoomType(t, pool)
+	const nights = 3
+	const attempts = 20
+	dates := make([]time.Time, 0, nights)
+	for i := 0; i < nights; i++ {
+		d := stayDate().AddDate(0, 0, i)
+		dates = append(dates, d)
+		require.NoError(t, repo.Add(ctx, newInventory(t, roomTypeId, d, attempts)))
+	}
+
+	bookingIds := make([]uuid.UUID, attempts)
+	for i := range bookingIds {
+		bookingIds[i] = insertBooking(t, pool, roomTypeId)
+	}
+
+	var (
+		mu     sync.Mutex
+		failed []error
+		wg     sync.WaitGroup
+	)
+	now := time.Now()
+
+	for i, bookingId := range bookingIds {
+		wg.Add(1)
+		go func(i int, bookingId uuid.UUID) {
+			defer wg.Done()
+			order := dates
+			if i%2 == 1 {
+				order = []time.Time{dates[2], dates[1], dates[0]}
+			}
+			for _, date := range order {
+				err := tx.WithinTx(ctx, func(ctx context.Context, repo inventoryapp.Repository) error {
+					inv, err := repo.FindForUpdate(ctx, domain.ReconstructInventoryId(roomTypeId, date))
+					if err != nil {
+						return err
+					}
+					if _, err := inv.Hold(domain.HoldInput{
+						HoldId:     uuid.New(),
+						BookingId:  bookingId,
+						RoomTypeId: roomTypeId,
+						ExpiredAt:  now.Add(30 * time.Minute),
+						Date:       now,
+					}); err != nil {
+						return err
+					}
+					return repo.Save(ctx, inv)
+				})
+				if err != nil {
+					mu.Lock()
+					failed = append(failed, err)
+					mu.Unlock()
+					return
+				}
+			}
+		}(i, bookingId)
+	}
+	wg.Wait()
+
+	require.Empty(t, failed, "ロック待ち超過やデッドロックが起きてはいけない")
+	for _, d := range dates {
+		require.Equal(t, attempts, countHolds(t, pool, roomTypeId, d))
+	}
+}

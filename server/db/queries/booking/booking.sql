@@ -28,3 +28,8 @@ SELECT id, room_type_id, checkin_date, checkout_date, total_fee, status, cancell
 FROM bookings
 WHERE booker_id = $1
 ORDER BY checkin_date DESC;
+
+-- name: ListStaleTemporaryHoldIds :many
+SELECT id FROM bookings
+WHERE status = 'temporary_hold' AND created_at < $1
+ORDER BY created_at;
