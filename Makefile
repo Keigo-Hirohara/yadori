@@ -18,7 +18,7 @@ DEPLOY_HOST ?= home-server
 DEPLOY_DIR ?= yadori
 DEPLOY_COMPOSE = docker compose --env-file ~/.config/yadori/.env -f deploy/compose.yml
 
-.PHONY: help setup dev api worker admin booker migrate seed up db-up auth-up down db-reset test test-short sqlc build fmt deploy deploy-sync deploy-seed deploy-logs deploy-ps deploy-down
+.PHONY: help setup dev api worker admin booker migrate seed up db-up auth-up down db-reset test test-short sqlc build fmt deploy deploy-sync deploy-seed deploy-logs deploy-ps deploy-down deploy-reset
 
 help:
 	@echo "make setup    依存をそろえる"
@@ -139,3 +139,8 @@ deploy-ps:
 
 deploy-down:
 	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) down'
+
+deploy-reset:
+	@echo "サーバーの DB と Keycloak のデータを消して作り直します。5秒後に実行..."; sleep 5
+	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) down -v'
+	$(MAKE) deploy
