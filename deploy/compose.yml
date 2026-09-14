@@ -5,7 +5,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: yadori
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?~/.config/yadori/.env に DB_PASSWORD を設定してください}
       POSTGRES_DB: yadori
     volumes:
       - db:/var/lib/postgresql/data
@@ -15,6 +15,20 @@ services:
       timeout: 3s
       retries: 10
     restart: unless-stopped
+
+  keycloak-db:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - |
+        psql -h db -U yadori -d yadori -tAc "SELECT 1 FROM pg_database WHERE datname = 'keycloak'" | grep -q 1 \
+          || createdb -h db -U yadori -O yadori keycloak
 
   realm-render:
     image: alpine:3.21
@@ -26,30 +40,36 @@ services:
       - -c
       - |
         for f in /in/*.json; do
-          sed -e "s#http://localhost:5173#http://${PUBLIC_HOST}:5173#g" -e "s#http://localhost:5174#http://${PUBLIC_HOST}:5174#g" "$$f" > "/out/$$(basename "$$f")"
+          sed -e "s#http://localhost:5173#${ADMIN_ORIGIN:?~/.config/yadori/.env に ADMIN_ORIGIN を設定してください}#g" -e "s#http://localhost:5174#${BOOKER_ORIGIN:?~/.config/yadori/.env に BOOKER_ORIGIN を設定してください}#g" -e 's#"directAccessGrantsEnabled": true#"directAccessGrantsEnabled": false#g' "$$f" > "/out/$$(basename "$$f")"
         done
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
-    command: start-dev --import-realm
+    command: start --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD}
-      KC_HTTP_PORT: 8080
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:?~/.config/yadori/.env に KC_ADMIN_PASSWORD を設定してください}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+      KC_DB_USERNAME: yadori
+      KC_DB_PASSWORD: ${DB_PASSWORD}
+      KC_HOSTNAME: ${AUTH_ORIGIN:?~/.config/yadori/.env に AUTH_ORIGIN を設定してください}
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: "true"
-    ports:
-      - "8180:8080"
     volumes:
       - realms:/opt/keycloak/data/import:ro
     depends_on:
+      keycloak-db:
+        condition: service_completed_successfully
       realm-render:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
       interval: 5s
       timeout: 5s
-      retries: 30
-      start_period: 30s
+      retries: 60
+      start_period: 60s
     restart: unless-stopped
 
   migrate:
@@ -66,12 +86,12 @@ services:
     command: ["/app/api"]
     environment:
       DATABASE_URL: postgres://yadori:${DB_PASSWORD}@db:5432/yadori?sslmode=disable
-      ALLOWED_ORIGINS: http://${PUBLIC_HOST}:5173,http://${PUBLIC_HOST}:5174
-      BOOKER_ISSUER: http://${PUBLIC_HOST}:8180/realms/yadori-booker
-      OPERATOR_ISSUER: http://${PUBLIC_HOST}:8180/realms/yadori-operator
+      ALLOWED_ORIGINS: ${BOOKER_ORIGIN},${ADMIN_ORIGIN}
+      BOOKER_ISSUER: ${AUTH_ORIGIN}/realms/yadori-booker
+      OPERATOR_ISSUER: ${AUTH_ORIGIN}/realms/yadori-operator
       AUTH_AUDIENCE: yadori-api
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -94,10 +114,8 @@ services:
       context: ../web
       args:
         APP: admin
-        VITE_API_BASE_URL: http://${PUBLIC_HOST}:8080/api/v1
-        VITE_OIDC_AUTHORITY: http://${PUBLIC_HOST}:8180/realms/yadori-operator
-    ports:
-      - "5173:80"
+        VITE_API_BASE_URL: ${API_ORIGIN:?~/.config/yadori/.env に API_ORIGIN を設定してください}/api/v1
+        VITE_OIDC_AUTHORITY: ${AUTH_ORIGIN}/realms/yadori-operator
     restart: unless-stopped
 
   booker:
@@ -105,10 +123,18 @@ services:
       context: ../web
       args:
         APP: booker
-        VITE_API_BASE_URL: http://${PUBLIC_HOST}:8080/api/v1
-        VITE_OIDC_AUTHORITY: http://${PUBLIC_HOST}:8180/realms/yadori-booker
-    ports:
-      - "5174:80"
+        VITE_API_BASE_URL: ${API_ORIGIN}/api/v1
+        VITE_OIDC_AUTHORITY: ${AUTH_ORIGIN}/realms/yadori-booker
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?~/.config/yadori/.env に CLOUDFLARE_TUNNEL_TOKEN を設定してください}
+    depends_on:
+      - booker
+      - admin
+      - api
+      - keycloak
     restart: unless-stopped
 
 volumes:

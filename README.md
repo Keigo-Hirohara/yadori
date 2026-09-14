@@ -163,56 +163,112 @@ make test-short
 make sqlc
 ```
 
-### 自宅サーバーへのデプロイ（LAN内）
+### 自宅サーバーへのデプロイと公開
 
-全部（PostgreSQL・Keycloak・API・ワーカー・フロント2つ）を Docker Compose で1台に載せます。
-構成は `deploy/compose.yml`、イメージは `server/Dockerfile` と `web/Dockerfile` です。
+全部（PostgreSQL・Keycloak・API・ワーカー・フロント2つ・Cloudflare Tunnel）を
+Docker Compose で自宅サーバー1台に載せます。構成は `deploy/compose.yml`、
+イメージは `server/Dockerfile` と `web/Dockerfile` です。
+
+| ホスト名 | 中身 |
+|---|---|
+| `yadori.hirohara-keigo.net` | 予約者向けサイト |
+| `admin-yadori.hirohara-keigo.net` | 管理画面 |
+| `api-yadori.hirohara-keigo.net` | API |
+| `auth-yadori.hirohara-keigo.net` | Keycloak |
+
+**外部からの通信は Cloudflare Tunnel 経由です。** サーバー側の `cloudflared` が Cloudflare へ
+外向きに接続し、その中を通ってリクエストが届きます。ルーターのポート開放も、
+サーバーへの直接の到達性も要りません。TLS は Cloudflare が終端します。
 
 **main に push すると自動でデプロイされます。** CI（テストとビルド）が通ったあと、
 サーバー上の GitHub Actions セルフホストランナーが `docker compose up -d --build` を実行します
-（`.github/workflows/ci.yml` の `deploy` ジョブ）。
-ランナーは GitHub へ外向きに接続するだけなので、ルーターの設定は不要です。
+（`.github/workflows/ci.yml` の `deploy` ジョブ）。ランナーも外向き接続だけです。
 
-#### サーバーの初期設定（1回だけ）
+#### 初期設定（1回だけ）
 
-1. GitHub で登録トークンを発行する
-   リポジトリの Settings → Actions → Runners → New self-hosted runner → Linux。
-   表示される `--token XXXX` の値だけを控える（1時間で失効）
-2. サーバーで実行する（Docker のインストール・ランナーの登録・サービス化をまとめて行う）
+**1. ドメインを Cloudflare に移す（DNS だけ。レジストラは Xserver のまま）**
 
-   ```bash
-   ssh home-server
-   git clone https://github.com/Keigo-Hirohara/yadori.git && cd yadori
-   ./deploy/setup-server.sh <登録トークン>
-   nano ~/.config/yadori/.env     # PUBLIC_HOST（LAN の IP）とパスワードを変える
-   ```
+1. Cloudflare にサインアップ → Add a domain → `hirohara-keigo.net` → Free プラン
+2. 表示される2つのネームサーバー（`xxx.ns.cloudflare.com`）を控える
+3. Xserver ドメインの管理パネル → 対象ドメイン → ネームサーバー設定 →
+   「その他のサービスで利用する」→ 上の2つを入力
+4. Cloudflare 側が「Active」になるまで待つ（数分〜数時間）
 
-   `~/.config/yadori/.env` は Git の外にあり、サーバーにだけ置かれます。
-3. デモデータを入れる（手元から）
+**2. Tunnel を作る**
 
-   ```bash
-   make deploy-seed
-   ```
+1. Cloudflare ダッシュボード → Zero Trust → Networks → Tunnels → Create a tunnel → Cloudflared
+2. 名前は `yadori`。次の画面に出る `cloudflared service install <トークン>` の**トークン部分だけ**を控える
+3. Public Hostname タブで4つ追加する（Service は compose のサービス名で書く）
 
-以降は push するだけです。手動でデプロイしたいときは `make deploy`（rsync で同期して起動）。
-接続先は `~/.ssh/config` のホスト名で、`.env` の `DEPLOY_HOST` で指定します（既定は `home-server`）。
-`make deploy-logs` / `make deploy-ps` / `make deploy-down` も同じ要領です。
+   | Subdomain | Domain | Service |
+   |---|---|---|
+   | `yadori` | `hirohara-keigo.net` | `http://booker:80` |
+   | `admin-yadori` | `hirohara-keigo.net` | `http://admin:80` |
+   | `api-yadori` | `hirohara-keigo.net` | `http://api:8080` |
+   | `auth-yadori` | `hirohara-keigo.net` | `http://keycloak:8080` |
 
-| | URL |
+   DNS レコードは Cloudflare が自動で作ります。
+
+**3. サーバーの初期設定**
+
+GitHub で Settings → Actions → Runners → New self-hosted runner → Linux と進み、
+表示される `--token XXXX` の値を控える（1時間で失効）。
+
+```bash
+ssh home-server
+git clone https://github.com/Keigo-Hirohara/yadori.git && cd yadori
+./deploy/setup-server.sh <ランナー登録トークン>
+nano ~/.config/yadori/.env
+```
+
+スクリプトが Docker のインストール・ランナーの登録とサービス化・設定ファイルの雛形作成を行います。
+`~/.config/yadori/.env` は Git の外にあり、サーバーにだけ置かれます。
+
+```
+BOOKER_ORIGIN=https://yadori.hirohara-keigo.net
+ADMIN_ORIGIN=https://admin-yadori.hirohara-keigo.net
+API_ORIGIN=https://api-yadori.hirohara-keigo.net
+AUTH_ORIGIN=https://auth-yadori.hirohara-keigo.net
+DB_PASSWORD=（長いランダム文字列）
+KC_ADMIN_PASSWORD=（長いランダム文字列）
+CLOUDFLARE_TUNNEL_TOKEN=（手順2のトークン）
+```
+
+**4. 起動とデモデータ**
+
+main に push するか、手元で `make deploy`。起動後に `make deploy-seed` でデモデータを入れます。
+
+#### 日常の操作
+
+| コマンド | 内容 |
 |---|---|
-| 予約者向けサイト | `http://<PUBLIC_HOST>:5174` |
-| 管理画面 | `http://<PUBLIC_HOST>:5173` |
-| API | `http://<PUBLIC_HOST>:8080` |
-| Keycloak | `http://<PUBLIC_HOST>:8180`（admin / `KC_ADMIN_PASSWORD`） |
+| `git push origin main` | CI → 自動デプロイ |
+| `make deploy` | 手動デプロイ（作業ツリーを rsync して起動） |
+| `make deploy-logs` / `deploy-ps` / `deploy-down` | ログ・状態・停止 |
+| `make deploy-reset` | **DB を含めて全部消して**作り直す。ホスト名を変えたときや初期化したいとき |
 
-Keycloak の realm 定義は `localhost` 向けに書かれているので、起動前に `realm-render` が
-リダイレクト先を `PUBLIC_HOST` に置き換えてから取り込みます。
-取り込みは realm が無いときだけ行われるため、`PUBLIC_HOST` を変えたときは
-`docker compose -f deploy/compose.yml down -v` で作り直してください（DBも消えます）。
+接続先は `~/.ssh/config` のホスト名で、`.env` の `DEPLOY_HOST` で指定します（既定は `home-server`）。
 
-セルフホストランナーは公開リポジトリでも安全側に倒しています。`deploy` ジョブは
-`main` への push でしか動かず、テストのジョブは GitHub のランナーで走るので、
-フォークからのプルリクエストが自宅サーバーでコードを実行することはありません。
+#### 本番で変えていること
+
+`deploy/compose.yml` は開発用の `compose.yml` と次の点が違います。
+
+- Keycloak は `start`（本番モード）で、データを PostgreSQL の `keycloak` データベースに置く。
+  `KC_HOSTNAME` を公開 URL に固定し、Cloudflare からの `X-Forwarded-*` を信頼する
+- realm 定義は `realm-render` が取り込み前に書き換える。リダイレクト先を公開 URL にし、
+  開発用の password grant（`directAccessGrantsEnabled`）を無効にする
+- ホストに公開するポートは CD の疎通確認用の `127.0.0.1:8080` だけ
+- Keycloak 用のデータベースは `keycloak-db` が毎回「無ければ作る」。realm の取り込みは realm が無いときだけ行われるため、ホスト名を変えたら `make deploy-reset`
+
+#### セキュリティの注意
+
+- Keycloak の管理コンソール（`auth-yadori.../admin`）も公開されます。`KC_ADMIN_PASSWORD` は長いものにしてください。
+  Cloudflare Access（Zero Trust → Access → Applications）で `auth-yadori.hirohara-keigo.net/admin` に
+  メール認証のポリシーを掛けると、自分以外はログイン画面にすら届かなくなります（無料枠で可）
+- デモ用のテストアカウント（`operator@example.com` / `password` など）も公開されます。
+  デモとして残すなら、Keycloak の管理コンソールでパスワードを変えるか、削除してください
+- セルフホストランナーは `main` への push でしか動かず、テストのジョブは GitHub のランナーで走るので、
+  フォークからのプルリクエストが自宅サーバーでコードを実行することはありません
 
 ---
 

@@ -1131,12 +1131,10 @@ password grant（`directAccessGrantsEnabled`）は開発用で、本番の realm
 | **CI** | GitHub Actions。sqlc の生成物の一致、gofmt、vet、DBテスト込みの全テスト、フロント2つのビルド |
 | **認証・認可** | Keycloak（realm 2つ）+ `shared/auth`。種類・本人性・所有権の3段階。フロントは OIDC PKCE |
 | 起動 | `make dev` / `make seed` / `compose.yml` |
-| **ホスティング** | 自宅サーバー（LAN内）。`deploy/compose.yml` に全サービス。`make deploy` |
+| **ホスティング・CD** | 自宅サーバー + Cloudflare Tunnel で `yadori.hirohara-keigo.net` に公開。main への push でセルフホストランナーが配備（README「デプロイと公開」） |
 
 ### 未着手
 
-- 外部公開後の自動デプロイの見直し（いまは main への push でセルフホストランナーが LAN 内に配備する）
-- 外部公開（ドメイン・HTTPS。LAN内での稼働まで）
 - プロセスマネージャー（状態をDBに持ち、中断地点から再開する）
 - 決済の腐敗防止層・Webhook・照合処理
 - CQRS への置き換え（非正規化テーブル、投影、再構築）
@@ -1164,7 +1162,7 @@ password grant（`directAccessGrantsEnabled`）は開発用で、本番の realm
 1. 期限切れ回収ワーカー         ← 完了
 2. CI + デッドロック検証テスト  ← 完了
 3. 認証                         ← 完了
-4. ホスティング + 自動デプロイ（LAN内の自宅サーバー、セルフホストランナー ← 完了）
+4. ホスティング + 自動デプロイ  ← 完了（自宅サーバー + Cloudflare Tunnel + セルフホストランナー）
 5. プロセスマネージャー + モック決済の本実装（腐敗防止層・Webhook・照合）
 6. CQRS への置き換え（投影、再構築処理）
 7. 負荷試験とプロファイリング
@@ -1201,7 +1199,7 @@ pprof でボトルネックを特定 → 改善 → 再計測。
 yadori/
 ├── Makefile              # make dev / migrate / seed / test / sqlc / deploy
 ├── compose.yml           # 開発用 PostgreSQL と Keycloak
-├── deploy/compose.yml    # 自宅サーバー用。全サービスをコンテナで動かす（README「デプロイ」）
+├── deploy/               # 本番用 compose（Cloudflare Tunnel 込み）、サーバー初期設定スクリプト
 ├── auth/realms/          # Keycloak の realm 定義（起動時に自動インポート）
 ├── server/
 │   ├── cmd/
