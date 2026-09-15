@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TOKEN=${1:-}
+RUNNER_TOKEN=${1:-}
+TUNNEL_TOKEN=${2:-}
 REPO_URL=https://github.com/Keigo-Hirohara/yadori
 ENV_DIR=$HOME/.config/yadori
 RUNNER_DIR=$HOME/actions-runner
@@ -15,7 +16,24 @@ sudo usermod -aG docker "$USER"
 mkdir -p "$ENV_DIR"
 if [ ! -f "$ENV_DIR/.env" ]; then
   cp "$(dirname "$0")/.env.example" "$ENV_DIR/.env"
-  echo "== $ENV_DIR/.env を作りました。PUBLIC_HOST とパスワードを編集してください"
+  echo "== $ENV_DIR/.env を作りました。公開 URL とパスワードを編集してください"
+fi
+
+echo "== Cloudflare Tunnel（サーバー全体で共有。yadori 以外のアプリも同じトンネルで公開する）"
+if ! command -v cloudflared >/dev/null; then
+  sudo mkdir -p --mode=0755 /usr/share/keyrings
+  curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+  echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" \
+    | sudo tee /etc/apt/sources.list.d/cloudflared.list >/dev/null
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq cloudflared
+fi
+if systemctl is-active --quiet cloudflared; then
+  echo "== cloudflared は稼働中です"
+elif [ -n "$TUNNEL_TOKEN" ]; then
+  sudo cloudflared service install "$TUNNEL_TOKEN"
+else
+  echo "== トンネルのトークンが未指定なので cloudflared の登録は飛ばします（後で: sudo cloudflared service install <トークン>）"
 fi
 
 echo "== GitHub Actions ランナーを用意します"
@@ -28,12 +46,12 @@ if [ ! -f config.sh ]; then
   rm runner.tar.gz
 fi
 if [ -f .runner ]; then
-  echo "== 登録済みなので登録は飛ばします"
+  echo "== ランナーは登録済みなので登録は飛ばします"
 else
-  [ -n "$TOKEN" ] || { echo "登録トークンが要ります: deploy/setup-server.sh <ランナー登録トークン>"; exit 1; }
-  ./config.sh --unattended --url "$REPO_URL" --token "$TOKEN" --name "$(hostname)" --labels yadori-home --replace
+  [ -n "$RUNNER_TOKEN" ] || { echo "ランナー登録トークンが要ります: deploy/setup-server.sh <ランナー登録トークン> [トンネルのトークン]"; exit 1; }
+  ./config.sh --unattended --url "$REPO_URL" --token "$RUNNER_TOKEN" --name "$(hostname)" --labels yadori-home --replace
 fi
-if ! systemctl is-enabled "actions.runner.*" >/dev/null 2>&1 && ! ls /etc/systemd/system/actions.runner.* >/dev/null 2>&1; then
+if ! ls /etc/systemd/system/actions.runner.* >/dev/null 2>&1; then
   sudo ./svc.sh install "$USER"
 fi
 sudo ./svc.sh start

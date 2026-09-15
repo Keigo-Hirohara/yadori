@@ -213,6 +213,18 @@ func (h *Handler) ListRoomTypes(w http.ResponseWriter, r *http.Request) {
 	sharedhttp.WriteJSON(w, http.StatusOK, body)
 }
 
+type accommodationSummaryResponse struct {
+	AccommodationId string `json:"accommodationId"`
+	Name            string `json:"name"`
+	Prefecture      string `json:"prefecture"`
+	City            string `json:"city"`
+}
+
+type roomTypeDetailResponse struct {
+	roomTypeResponse
+	Accommodation accommodationSummaryResponse `json:"accommodation"`
+}
+
 func (h *Handler) FindRoomType(w http.ResponseWriter, r *http.Request) {
 	id, err := sharedhttp.PathUUID(r, "roomTypeId")
 	if err != nil {
@@ -225,5 +237,18 @@ func (h *Handler) FindRoomType(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	sharedhttp.WriteJSON(w, http.StatusOK, toRoomTypeResponse(rt))
+	a, err := FindAccommodationById(r.Context(), h.db, rt.AccommodationId())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	sharedhttp.WriteJSON(w, http.StatusOK, roomTypeDetailResponse{
+		roomTypeResponse: toRoomTypeResponse(rt),
+		Accommodation: accommodationSummaryResponse{
+			AccommodationId: a.ID().String(),
+			Name:            a.Name(),
+			Prefecture:      a.Prefecture(),
+			City:            a.City(),
+		},
+	})
 }

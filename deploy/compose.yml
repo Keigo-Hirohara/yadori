@@ -57,6 +57,8 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: "true"
+    ports:
+      - "127.0.0.1:8180:8080"
     volumes:
       - realms:/opt/keycloak/data/import:ro
     depends_on:
@@ -116,6 +118,8 @@ services:
         APP: admin
         VITE_API_BASE_URL: ${API_ORIGIN:?~/.config/yadori/.env に API_ORIGIN を設定してください}/api/v1
         VITE_OIDC_AUTHORITY: ${AUTH_ORIGIN}/realms/yadori-operator
+    ports:
+      - "127.0.0.1:5173:80"
     restart: unless-stopped
 
   booker:
@@ -125,16 +129,8 @@ services:
         APP: booker
         VITE_API_BASE_URL: ${API_ORIGIN}/api/v1
         VITE_OIDC_AUTHORITY: ${AUTH_ORIGIN}/realms/yadori-booker
-    restart: unless-stopped
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?~/.config/yadori/.env に CLOUDFLARE_TUNNEL_TOKEN を設定してください}
-    depends_on:
-      - booker
-      - admin
-      - api
-      - keycloak
+    ports:
+      - "127.0.0.1:5174:80"
     restart: unless-stopped
 
 volumes:

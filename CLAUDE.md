@@ -1000,7 +1000,7 @@ APIを物理的に分ける実利はこの規模ではありません。
 | メソッド | パス | 成功 | 主なエラーコード |
 |---|---|---|---|
 | `GET` | `/room-types/search?prefecture=&checkin=&checkout=&guests=&max_fee=` | 200 | `INVALID_STAY_PERIOD` / `INVALID_GUESTS` 400。`prefecture` と `max_fee` は省略可 |
-| `GET` | `/room-types/{roomTypeId}` | 200 | `ROOM_TYPE_NOT_FOUND` 404 |
+| `GET` | `/room-types/{roomTypeId}` | 200 | `ROOM_TYPE_NOT_FOUND` 404。宿の要約（`accommodation`: 名前・都道府県・市区町村）を含む。予約詳細が「どの宿のどの部屋か」を出すため |
 | `POST` | `/bookers` | 201 | `INVALID_FIRST_NAME` ほか 400 |
 | `GET` | `/bookers/{bookerId}` | 200 | `BOOKER_NOT_FOUND` 404 |
 | `GET` | `/bookers/{bookerId}/bookings` | 200 | 宿泊者は含まない要約。チェックイン日の降順 |

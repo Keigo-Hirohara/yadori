@@ -13,8 +13,7 @@ export default function RequireLogin({ children }: { children: ReactNode }) {
   if (state === "out") {
     return (
       <div className="mx-auto max-w-[560px] px-6 pt-20 text-center">
-        <h2 className="mb-3 text-[22px]">ログインが必要です</h2>
-        <p className="text-muted mb-8 text-[14px]">運営者アカウントでログインしてください。</p>
+        <h2 className="mb-8 text-[22px]">ログインが必要です</h2>
         <Button onClick={() => login()}>ログインする</Button>
       </div>
     );

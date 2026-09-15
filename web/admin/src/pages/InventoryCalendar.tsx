@@ -376,9 +376,6 @@ function RegisterModal({
       <div className="notice notice-accent rounded-[var(--radius-md)] py-3 px-[14px]">
         {dates.length}日分を、{quantity}枠・{yen(fee)} で登録します。
       </div>
-      <div className="-mt-1 text-[12px] text-[var(--color-neutral-600)]">
-        すでに在庫がある日は、枠数と料金を変更します。確保済みの予約はそのまま残ります。
-      </div>
       <div className="dialog-actions">
         <Button variant="secondary" onClick={onClose}>
           キャンセル

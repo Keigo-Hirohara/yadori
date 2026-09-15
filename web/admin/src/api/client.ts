@@ -56,6 +56,12 @@ export type RoomType = {
   capacity: number;
   hasPrivateBath: boolean;
   hasBalcony: boolean;
+  accommodation?: {
+    accommodationId: string;
+    name: string;
+    prefecture: string;
+    city: string;
+  };
 };
 
 export type RoomTypeInput = {
