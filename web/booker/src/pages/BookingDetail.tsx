@@ -1,19 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { cancel, getBooking, statusLabel, type Booking, type BookingStatus } from "../api/client";
+import { cancel, getBooking, getRoomType, statusLabel, type Booking, type BookingStatus, type RoomType } from "../api/client";
 import RequireLogin from "../components/RequireLogin";
 import { Button, ErrorBanner, Modal, yen } from "../components/ui";
 
 const fmt = (s: string) => {
   const [y, m, d] = s.split("-");
   return `${y}年${Number(m)}月${Number(d)}日`;
-};
-
-const statusNote: Record<BookingStatus, string> = {
-  temporary_hold: "お部屋を確保しています。30分以内にお支払いを完了してください。",
-  processing_payment: "お支払いの結果を確認しています。",
-  confirmed: "ご予約は確定しています。お待ちしております。",
-  cancelled: "このご予約はキャンセルされています。",
 };
 
 export default function BookingDetail() {
@@ -27,12 +20,18 @@ export default function BookingDetail() {
 function Detail() {
   const { bookingId = "" } = useParams();
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [roomType, setRoomType] = useState<RoomType | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [cancelledFee, setCancelledFee] = useState<number | null>(null);
 
   const load = () => {
-    getBooking(bookingId).then(setBooking).catch((e) => setError(e.message));
+    getBooking(bookingId)
+      .then((b) => {
+        setBooking(b);
+        return getRoomType(b.roomTypeId).then(setRoomType);
+      })
+      .catch((e) => setError(e.message));
   };
 
   useEffect(load, [bookingId]);
@@ -53,11 +52,10 @@ function Detail() {
 
   return (
     <div className="mx-auto max-w-[860px] px-6 pt-12 pb-32">
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="mb-10 flex flex-wrap items-center gap-4">
         <h1 className="text-[26px]">予約詳細</h1>
         {booking && <StatusTag status={booking.status} />}
       </div>
-      <p className="text-muted mb-10 text-[13px]">{booking ? statusNote[booking.status] : ""}</p>
       <ErrorBanner message={error} />
 
       {cancelledFee !== null && (
@@ -73,6 +71,34 @@ function Detail() {
               <tr>
                 <td className="text-muted w-[150px]">予約番号</td>
                 <td className="tabular-nums">{booking.bookingId}</td>
+              </tr>
+              <tr>
+                <td className="text-muted">宿</td>
+                <td>
+                  {roomType?.accommodation ? (
+                    <>
+                      {roomType.accommodation.name}
+                      <span className="text-muted ml-3 text-[13px]">
+                        {roomType.accommodation.prefecture} {roomType.accommodation.city}
+                      </span>
+                    </>
+                  ) : (
+                    "…"
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td className="text-muted">部屋タイプ</td>
+                <td>
+                  {roomType ? (
+                    <>
+                      {roomType.name}
+                      <span className="text-muted ml-3 text-[13px]">定員 {roomType.capacity}名</span>
+                    </>
+                  ) : (
+                    "…"
+                  )}
+                </td>
               </tr>
               <tr>
                 <td className="text-muted">日程</td>

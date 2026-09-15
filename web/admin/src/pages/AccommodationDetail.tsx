@@ -157,7 +157,7 @@ function RoomTypeForm({
       <Field label="部屋タイプ名">
         <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
       </Field>
-      <Field label="定員" hint="1名以上で入力してください。" className="max-w-[200px]">
+      <Field label="定員" className="max-w-[200px]">
         <input type="number" min={1} className={inputClass} value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} />
       </Field>
       <Field label="専用風呂">

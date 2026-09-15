@@ -55,11 +55,11 @@ export default function AccommodationNew() {
           <Field label="宿名" className="col-span-2">
             <input className={inputClass} value={form.name} onChange={(e) => update("name")(e.target.value)} />
           </Field>
-          <Field label="電話番号" hint="ハイフンなしの数字で入力してください。">
-            <input className={inputClass} value={form.phoneNumber} onChange={(e) => update("phoneNumber")(e.target.value)} />
+          <Field label="電話番号">
+            <input className={inputClass} placeholder="0312345678" value={form.phoneNumber} onChange={(e) => update("phoneNumber")(e.target.value)} />
           </Field>
-          <Field label="郵便番号" hint="ハイフンなしの7桁で入力してください。">
-            <input className={inputClass} style={{ maxWidth: 180 }} value={form.postalCode} onChange={(e) => update("postalCode")(e.target.value)} />
+          <Field label="郵便番号">
+            <input className={inputClass} style={{ maxWidth: 180 }} placeholder="1000001" value={form.postalCode} onChange={(e) => update("postalCode")(e.target.value)} />
           </Field>
           <Field label="都道府県">
             <select className={inputClass} value={form.prefecture} onChange={(e) => update("prefecture")(e.target.value)}>

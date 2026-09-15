@@ -119,11 +119,11 @@ function BookingForm() {
               <Field label="名">
                 <input className={inputClass} value={booker.firstName} onChange={(e) => setBooker({ ...booker, firstName: e.target.value })} />
               </Field>
-              <Field label="電話番号" hint="ハイフンなし">
-                <input type="tel" className={inputClass} value={booker.phoneNumber} onChange={(e) => setBooker({ ...booker, phoneNumber: e.target.value })} />
+              <Field label="電話番号">
+                <input type="tel" className={inputClass} placeholder="09012345678" value={booker.phoneNumber} onChange={(e) => setBooker({ ...booker, phoneNumber: e.target.value })} />
               </Field>
-              <Field label="郵便番号" hint="ハイフンなしの7桁">
-                <input className={inputClass} value={booker.postalCode} onChange={(e) => setBooker({ ...booker, postalCode: e.target.value })} />
+              <Field label="郵便番号">
+                <input className={inputClass} placeholder="1000001" value={booker.postalCode} onChange={(e) => setBooker({ ...booker, postalCode: e.target.value })} />
               </Field>
               <Field label="都道府県">
                 <select className={inputClass} value={booker.prefecture} onChange={(e) => setBooker({ ...booker, prefecture: e.target.value })}>
