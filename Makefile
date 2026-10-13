@@ -18,7 +18,7 @@ DEPLOY_HOST ?= home-server
 DEPLOY_DIR ?= yadori
 DEPLOY_COMPOSE = docker compose --env-file ~/.config/yadori/.env -f deploy/compose.yml
 
-.PHONY: help setup dev api worker admin booker migrate seed up db-up auth-up down db-reset test test-short sqlc build fmt deploy deploy-sync deploy-seed deploy-logs deploy-ps deploy-down deploy-reset
+.PHONY: help setup dev api worker admin booker migrate seed loadseed up db-up auth-up down db-reset test test-short sqlc build fmt deploy deploy-sync deploy-seed deploy-loadseed deploy-logs deploy-ps deploy-down deploy-reset
 
 help:
 	@echo "make setup    依存をそろえる"
@@ -30,6 +30,7 @@ help:
 	@echo "make booker   予約者向けサイトだけ起動"
 	@echo "make migrate  マイグレーションを適用"
 	@echo "make seed     動作確認用のデモデータを入れる"
+	@echo "make loadseed 負荷試験用の大量データを入れる（実行するたびに作り直す）"
 	@echo "make up       PostgreSQL と Keycloak を起動（Docker が要る）"
 	@echo "make db-up    PostgreSQL だけ起動"
 	@echo "make auth-up  Keycloak だけ起動"
@@ -73,6 +74,9 @@ migrate:
 
 seed:
 	cd server && go run ./cmd/seed
+
+loadseed:
+	cd server && go run ./cmd/loadseed
 
 up: db-up auth-up
 
@@ -130,6 +134,9 @@ deploy: deploy-sync
 
 deploy-seed:
 	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) run --rm --no-deps api /app/seed'
+
+deploy-loadseed:
+	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) run --rm --no-deps api /app/loadseed'
 
 deploy-logs:
 	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) logs -f --tail=100'

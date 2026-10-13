@@ -763,12 +763,19 @@ CREATE TABLE guests (
 
 ### マイグレーション
 
-`server/db/migrations/` に golang-migrate 形式で置きます。000001〜000007 が初期スキーマ、000008〜000010 が上記の追加。
+`server/db/migrations/` に golang-migrate 形式で置きます。000001〜000007 が初期スキーマ、000008〜000011 が上記の追加。
 `make migrate`（`server/cmd/migrate`）で適用します。CLI を別途入れなくて済むよう、ライブラリを直接使う小さなコマンドです。
 
-**インデックスは意図的にまだ貼っていません。** 負荷試験の段階で、
-計測 → 特定 → 追加 → 再計測 の往復を記録に残すためです。
-貼る候補は `holds(expired_at) WHERE status='temporary_hold'` の部分インデックスなど。
+**インデックスは計測してから貼ります。** 主キーと `uq_slot` 以外は最初から貼らず、
+負荷試験で 計測 → 特定 → 追加 → 再計測 の往復を記録に残す方針です。
+
+| 追加 | 索引 | 計測で分かったこと |
+|---|---|---|
+| 000011 | `guests(booking_id)` | 予約を削除すると `ON DELETE CASCADE` が1行ごとに `guests` を全表走査する。49万行の削除が3分20秒で終わらなかった。アプリ側でも予約詳細が宿泊者をこの列で引く |
+| 000011 | `holds(booking_id)` | 同じく外部キーに索引がない。確保を予約IDで引く経路がある（5.1） |
+
+未着手の候補は `inventories(date)`（検索が65万行を全表走査している）と
+`holds(expired_at) WHERE status='temporary_hold'`（期限切れ回収）。
 
 ---
 
@@ -1206,6 +1213,7 @@ yadori/
 │   │   ├── api/          # HTTPサーバー。routes.go に全ルート、main.go が合成の根
 │   │   ├── migrate/      # マイグレーション適用（golang-migrate をライブラリとして使う）
 │   │   ├── seed/         # 動作確認用のデモデータ
+│   │   ├── loadseed/     # 負荷試験用の大量データ（SQLで一括生成）
 │   │   └── worker/       # 期限切れ回収（決済照合は未着手）。-once で1回だけ実行
 │   ├── internal/
 │   │   ├── inventory/    # 中核・ドメインモデル

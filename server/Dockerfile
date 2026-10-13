@@ -6,7 +6,8 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /out/api ./cmd/api \
  && CGO_ENABLED=0 go build -o /out/worker ./cmd/worker \
  && CGO_ENABLED=0 go build -o /out/migrate ./cmd/migrate \
- && CGO_ENABLED=0 go build -o /out/seed ./cmd/seed
+ && CGO_ENABLED=0 go build -o /out/seed ./cmd/seed \
+ && CGO_ENABLED=0 go build -o /out/loadseed ./cmd/loadseed
 
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
