@@ -18,7 +18,7 @@ DEPLOY_HOST ?= home-server
 DEPLOY_DIR ?= yadori
 DEPLOY_COMPOSE = docker compose --env-file ~/.config/yadori/.env -f deploy/compose.yml
 
-.PHONY: help setup dev api worker admin booker migrate seed loadseed up db-up auth-up down db-reset test test-short sqlc build fmt deploy deploy-sync deploy-seed deploy-loadseed deploy-logs deploy-ps deploy-down deploy-reset
+.PHONY: help setup dev api worker admin booker migrate seed loadseed up db-up auth-up down db-reset test test-short sqlc build fmt deploy deploy-sync deploy-seed deploy-loadseed load-search deploy-logs deploy-ps deploy-down deploy-reset
 
 help:
 	@echo "make setup    依存をそろえる"
@@ -31,6 +31,7 @@ help:
 	@echo "make migrate  マイグレーションを適用"
 	@echo "make seed     動作確認用のデモデータを入れる"
 	@echo "make loadseed 負荷試験用の大量データを入れる（実行するたびに作り直す）"
+	@echo "make load-search  サーバー上で検索APIの負荷試験を行う（k6）"
 	@echo "make up       PostgreSQL と Keycloak を起動（Docker が要る）"
 	@echo "make db-up    PostgreSQL だけ起動"
 	@echo "make auth-up  Keycloak だけ起動"
@@ -137,6 +138,9 @@ deploy-seed:
 
 deploy-loadseed:
 	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) run --rm --no-deps api /app/loadseed'
+
+load-search:
+	ssh $(DEPLOY_HOST) 'docker run --rm -i --network host grafana/k6 run -' < load/search.js
 
 deploy-logs:
 	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) logs -f --tail=100'
