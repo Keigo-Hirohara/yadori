@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	searchdb "github.com/Keigo-Hirohara/yadori/internal/search/db"
@@ -52,7 +53,7 @@ func Search(ctx context.Context, db searchdb.DBTX, c Criteria) ([]Result, error)
 		MaxFee:       int32(c.MaxFee),
 	})
 	if err != nil {
-		return nil, ErrFailedToRead
+		return nil, fmt.Errorf("%w: %w", ErrFailedToRead, err)
 	}
 
 	results := make([]Result, 0, len(rows))
