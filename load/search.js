@@ -6,6 +6,7 @@ const baseUrl = __ENV.BASE_URL || 'http://localhost:8080/api/v1';
 const rate = 70;
 
 export const options = {
+  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(95)', 'p(99)'],
   scenarios: {
     warmup: {
       executor: 'constant-arrival-rate',
