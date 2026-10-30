@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    command: ["postgres", "-c", "random_page_cost=1.1"]
     environment:
       POSTGRES_USER: yadori
       POSTGRES_PASSWORD: yadori
