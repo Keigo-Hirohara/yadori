@@ -18,7 +18,7 @@ DEPLOY_HOST ?= home-server
 DEPLOY_DIR ?= yadori
 DEPLOY_COMPOSE = docker compose --env-file ~/.config/yadori/.env -f deploy/compose.yml
 
-.PHONY: help setup dev api worker admin booker migrate seed loadseed up db-up auth-up down db-reset test test-short sqlc build fmt deploy deploy-sync deploy-seed deploy-loadseed load-search deploy-logs deploy-ps deploy-down deploy-reset
+.PHONY: help setup dev api worker admin booker migrate seed loadseed up db-up auth-up loadtest-client down db-reset test test-short sqlc build fmt deploy deploy-sync deploy-seed deploy-loadseed deploy-loadtest-client load-search deploy-logs deploy-ps deploy-down deploy-reset
 
 help:
 	@echo "make setup    依存をそろえる"
@@ -35,6 +35,7 @@ help:
 	@echo "make up       PostgreSQL と Keycloak を起動（Docker が要る）"
 	@echo "make db-up    PostgreSQL だけ起動"
 	@echo "make auth-up  Keycloak だけ起動"
+	@echo "make loadtest-client  負荷試験用のクライアントを Keycloak に作る"
 	@echo "make test     全テスト（DBを含む）とフロントのビルド検査"
 	@echo "make test-short DB不要な高速テストのみ"
 	@echo "make sqlc     SQLからコードを生成"
@@ -93,6 +94,9 @@ auth-up:
 	@until curl -sf $(BOOKER_ISSUER)/.well-known/openid-configuration >/dev/null 2>&1; do sleep 2; done
 	@echo "Keycloak: 起動しました  管理コンソール http://localhost:8180 (admin / admin)"
 
+loadtest-client:
+	docker compose exec -T -e LOADTEST_CLIENT_SECRET=loadtest keycloak sh < auth/loadtest-client.sh
+
 down:
 	docker compose down
 
@@ -138,6 +142,9 @@ deploy-seed:
 
 deploy-loadseed:
 	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) run --rm --no-deps api /app/loadseed'
+
+deploy-loadtest-client:
+	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && LOADTEST_CLIENT_SECRET=$$(grep ^LOADTEST_CLIENT_SECRET= ~/.config/yadori/.env | cut -d= -f2-) $(DEPLOY_COMPOSE) exec -T -e LOADTEST_CLIENT_SECRET keycloak sh' < auth/loadtest-client.sh
 
 load-search:
 	ssh $(DEPLOY_HOST) 'docker run --rm -i --network host grafana/k6 run -' < load/search.js
