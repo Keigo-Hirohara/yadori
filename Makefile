@@ -18,7 +18,7 @@ DEPLOY_HOST ?= home-server
 DEPLOY_DIR ?= yadori
 DEPLOY_COMPOSE = docker compose --env-file ~/.config/yadori/.env -f deploy/compose.yml
 
-.PHONY: help setup dev api worker admin booker migrate seed loadseed up db-up auth-up loadtest-client down db-reset test test-short sqlc build fmt deploy deploy-sync deploy-seed deploy-loadseed deploy-loadtest-client load-search deploy-logs deploy-ps deploy-down deploy-reset
+.PHONY: help setup dev api worker admin booker migrate seed loadseed loadprep up db-up auth-up loadtest-client down db-reset test test-short sqlc build fmt deploy deploy-sync deploy-seed deploy-loadseed deploy-loadprep deploy-loadtest-client load-rush load-search deploy-logs deploy-ps deploy-down deploy-reset
 
 help:
 	@echo "make setup    依存をそろえる"
@@ -32,6 +32,7 @@ help:
 	@echo "make seed     動作確認用のデモデータを入れる"
 	@echo "make loadseed 負荷試験用の大量データを入れる（実行するたびに作り直す）"
 	@echo "make load-search  サーバー上で検索APIの負荷試験を行う（k6）"
+	@echo "make load-rush    サーバー上で残り3枠に100人が殺到する試験を行う（k6）"
 	@echo "make up       PostgreSQL と Keycloak を起動（Docker が要る）"
 	@echo "make db-up    PostgreSQL だけ起動"
 	@echo "make auth-up  Keycloak だけ起動"
@@ -79,6 +80,9 @@ seed:
 
 loadseed:
 	cd server && go run ./cmd/loadseed
+
+loadprep:
+	cd server && go run ./cmd/loadprep
 
 up: db-up auth-up
 
@@ -143,8 +147,18 @@ deploy-seed:
 deploy-loadseed:
 	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) run --rm --no-deps api /app/loadseed'
 
+deploy-loadprep:
+	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) run --rm --no-deps api /app/loadprep'
+
 deploy-loadtest-client:
 	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && LOADTEST_CLIENT_SECRET=$$(grep ^LOADTEST_CLIENT_SECRET= ~/.config/yadori/.env | cut -d= -f2-) $(DEPLOY_COMPOSE) exec -T -e LOADTEST_CLIENT_SECRET keycloak sh' < auth/loadtest-client.sh
+
+load-rush:
+	@set -e; \
+	prep=$$(ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && $(DEPLOY_COMPOSE) run --rm --no-deps api /app/loadprep'); \
+	echo "準備: $$prep"; \
+	set -- $$prep; \
+	ssh $(DEPLOY_HOST) 'export LOADTEST_CLIENT_SECRET=$$(grep ^LOADTEST_CLIENT_SECRET= ~/.config/yadori/.env | cut -d= -f2-) AUTH_ORIGIN=$$(grep ^AUTH_ORIGIN= ~/.config/yadori/.env | cut -d= -f2-) ROOM_TYPE_ID='$$1' CHECKIN='$$2' && docker run --rm -i --network host -e LOADTEST_CLIENT_SECRET -e AUTH_ORIGIN -e ROOM_TYPE_ID -e CHECKIN grafana/k6 run -' < load/rush.js
 
 load-search:
 	ssh $(DEPLOY_HOST) 'docker run --rm -i --network host grafana/k6 run -' < load/search.js
