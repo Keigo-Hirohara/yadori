@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Keigo-Hirohara/yadori/internal/accommodation"
@@ -16,19 +18,31 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const (
-	operatorSubject = "loadtest-rush"
-	rushDays        = 14
-	vacancy         = 3
-)
+const startAfterDays = 14
+
+type plan struct {
+	subject   string
+	name      string
+	roomTypes int
+	days      int
+	vacancy   int
+}
 
 func main() {
-	if err := run(); err != nil {
+	var p plan
+	flag.StringVar(&p.subject, "subject", "loadtest-rush", "宿の目印（operator_subject）")
+	flag.StringVar(&p.name, "name", "負荷試験（集中）", "宿の名前")
+	flag.IntVar(&p.roomTypes, "room-types", 1, "部屋タイプの数")
+	flag.IntVar(&p.days, "days", 1, "実行日の2週間後から何日分の在庫を用意するか")
+	flag.IntVar(&p.vacancy, "vacancy", 3, "各在庫の空き枠の数")
+	flag.Parse()
+
+	if err := run(p); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run() error {
+func run(p plan) error {
 	ctx := context.Background()
 
 	dsn := os.Getenv("DATABASE_URL")
@@ -42,27 +56,34 @@ func run() error {
 	}
 	defer pool.Close()
 
-	a, err := findOrCreateAccommodation(ctx, pool)
+	a, err := findOrCreateAccommodation(ctx, pool, p)
 	if err != nil {
 		return err
 	}
-	roomType, err := findOrCreateRoomType(ctx, pool, a)
+	roomTypes, err := findOrCreateRoomTypes(ctx, pool, a, p)
 	if err != nil {
 		return err
 	}
 
 	inventory := inventoryapp.NewService(inventorypostgres.NewTransactor(pool))
 	now := time.Now()
-	date := now.AddDate(0, 0, rushDays)
-	if err := prepareVacancy(ctx, inventory, roomType.ID(), date, now); err != nil {
-		return err
+	start := now.AddDate(0, 0, startAfterDays)
+
+	ids := make([]string, 0, len(roomTypes))
+	for _, rt := range roomTypes {
+		for i := 0; i < p.days; i++ {
+			if err := prepareVacancy(ctx, inventory, rt.ID(), start.AddDate(0, 0, i), now, p.vacancy); err != nil {
+				return err
+			}
+		}
+		ids = append(ids, rt.ID().String())
 	}
 
-	fmt.Println(roomType.ID(), date.Format("2006-01-02"))
+	fmt.Println(start.Format("2006-01-02"), strings.Join(ids, ","))
 	return nil
 }
 
-func prepareVacancy(ctx context.Context, inventory *inventoryapp.Service, roomTypeId uuid.UUID, date, now time.Time) error {
+func prepareVacancy(ctx context.Context, inventory *inventoryapp.Service, roomTypeId uuid.UUID, date, now time.Time, vacancy int) error {
 	err := inventory.Register(ctx, inventoryapp.RegisterInput{
 		RoomTypeId: roomTypeId,
 		Date:       date,
@@ -87,8 +108,8 @@ func prepareVacancy(ctx context.Context, inventory *inventoryapp.Service, roomTy
 	return inventory.ChangeQuantity(ctx, roomTypeId, date, summaries[0].HeldCount+vacancy)
 }
 
-func findOrCreateAccommodation(ctx context.Context, pool *pgxpool.Pool) (accommodation.Accommodation, error) {
-	accommodations, err := accommodation.ListAccommodationsByOperator(ctx, pool, operatorSubject)
+func findOrCreateAccommodation(ctx context.Context, pool *pgxpool.Pool, p plan) (accommodation.Accommodation, error) {
+	accommodations, err := accommodation.ListAccommodationsByOperator(ctx, pool, p.subject)
 	if err != nil {
 		return accommodation.Accommodation{}, err
 	}
@@ -97,8 +118,8 @@ func findOrCreateAccommodation(ctx context.Context, pool *pgxpool.Pool) (accommo
 	}
 
 	a, err := accommodation.NewAccommodation(accommodation.AccommodationCreateInput{
-		OperatorSubject: operatorSubject,
-		Name:            "負荷試験（集中）",
+		OperatorSubject: p.subject,
+		Name:            p.name,
 		PhoneNumber:     "0312345678",
 		PostalCode:      "1000001",
 		Prefecture:      "東京都",
@@ -114,25 +135,25 @@ func findOrCreateAccommodation(ctx context.Context, pool *pgxpool.Pool) (accommo
 	return a, nil
 }
 
-func findOrCreateRoomType(ctx context.Context, pool *pgxpool.Pool, a accommodation.Accommodation) (*accommodation.RoomType, error) {
+func findOrCreateRoomTypes(ctx context.Context, pool *pgxpool.Pool, a accommodation.Accommodation, p plan) ([]accommodation.RoomType, error) {
 	roomTypes, err := accommodation.ListRoomTypesByAccommodationId(ctx, pool, a.ID())
 	if err != nil {
 		return nil, err
 	}
-	if len(roomTypes) > 0 {
-		return &roomTypes[0], nil
-	}
 
-	roomType, err := accommodation.NewRoomType(accommodation.RoomTypeCreateInput{
-		AccommodationId: a.ID(),
-		Name:            "集中試験用",
-		Capacity:        2,
-	})
-	if err != nil {
-		return nil, err
+	for len(roomTypes) < p.roomTypes {
+		roomType, err := accommodation.NewRoomType(accommodation.RoomTypeCreateInput{
+			AccommodationId: a.ID(),
+			Name:            fmt.Sprintf("試験用 %d", len(roomTypes)+1),
+			Capacity:        2,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if err := roomType.Save(ctx, pool); err != nil {
+			return nil, err
+		}
+		roomTypes = append(roomTypes, *roomType)
 	}
-	if err := roomType.Save(ctx, pool); err != nil {
-		return nil, err
-	}
-	return roomType, nil
+	return roomTypes[:p.roomTypes], nil
 }
