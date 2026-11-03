@@ -96,6 +96,9 @@ func (b *Booking) StartPayment() error {
 }
 
 func (b *Booking) Confirm() error {
+	if b.status == Confirmed {
+		return nil
+	}
 	return b.transition(Confirmed)
 }
 

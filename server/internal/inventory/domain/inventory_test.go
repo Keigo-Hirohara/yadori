@@ -302,6 +302,20 @@ func TestInventory_Confirm(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidTransition)
 	})
 
+	t.Run("確定済みをもう一度確定しても成功し、状態は変わらない", func(t *testing.T) {
+		inv := newInventoryForTest(t, 3)
+		holdID := addHold(t, inv)
+		require.NoError(t, inv.StartPayment(holdID))
+		require.NoError(t, inv.Confirm(holdID))
+
+		err := inv.Confirm(holdID)
+
+		require.NoError(t, err)
+		h, _ := inv.FindHold(holdID)
+		require.Equal(t, Confirmed, h.Status())
+		require.Equal(t, 1, inv.HoldCount())
+	})
+
 	t.Run("存在しない確保IDではエラー", func(t *testing.T) {
 		inv := newInventoryForTest(t, 3)
 

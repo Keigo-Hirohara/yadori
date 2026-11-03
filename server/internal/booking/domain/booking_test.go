@@ -137,12 +137,24 @@ func TestBooking_Confirm(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidTransition)
 	})
 
-	t.Run("二重に確定できない", func(t *testing.T) {
+	t.Run("確定済みをもう一度確定しても成功し、状態は変わらない", func(t *testing.T) {
 		b := newTestBooking(t, 2, 2)
 		require.NoError(t, b.StartPayment())
 		require.NoError(t, b.Confirm())
 
 		err := b.Confirm()
+
+		require.NoError(t, err)
+		require.Equal(t, Confirmed, b.Status())
+	})
+
+	t.Run("キャンセル済みは確定にできない", func(t *testing.T) {
+		b := newTestBooking(t, 2, 2)
+		require.NoError(t, b.StartPayment())
+		_, err := b.Cancel(PaymentFailed, time.Now())
+		require.NoError(t, err)
+
+		err = b.Confirm()
 
 		require.ErrorIs(t, err, ErrInvalidTransition)
 	})

@@ -143,6 +143,9 @@ func (inv *Inventory) Confirm(bookingId uuid.UUID) error {
 	if !ok {
 		return ErrHoldNotFound
 	}
+	if inv.holds[i].status == Confirmed {
+		return nil
+	}
 	if inv.holds[i].status != ProcessingPayment {
 		return ErrInvalidTransition
 	}
